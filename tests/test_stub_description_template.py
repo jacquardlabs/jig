@@ -19,7 +19,9 @@ Checks this story's acceptance criteria mechanically:
    `build` shared this template through M1-M3; story `build-skill` (M4)
    replaced its stub with real orchestration content, so it is no longer
    part of this stub-only regression set -- see test_build_skill.py for its
-   own acceptance checks instead.
+   own acceptance checks instead. `finish` shared it through M1-M4; story
+   `finish-skill` (M5) replaced its stub with real closing-out content, so
+   it is no longer part of this set either -- see test_finish_skill.py.
 2. coach's description keeps citing its own open question (M6, DESIGN.md's
    "Top inconsistencies / risks" section (#4)) rather than silently
    dropping the detail while normalizing the opener.
@@ -43,9 +45,10 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 SKILLS_DIR = REPO_ROOT / "skills"
 
 # The user-invoked skill stubs that still share one description template.
-# `build` graduated out of this set at story build-skill (M4) -- it now
-# ships real content, checked by test_build_skill.py instead.
-STUB_SKILLS = ("design", "plan", "finish", "coach")
+# `build` graduated out of this set at story build-skill (M4); `finish`
+# graduated out at story finish-skill (M5) -- both now ship real content,
+# checked by test_build_skill.py / test_finish_skill.py instead.
+STUB_SKILLS = ("design", "plan", "coach")
 
 # The opener every stub description must share: milestone + doc citation up
 # front, before "Will become jig's ..." -- not buried at the end of the
@@ -69,7 +72,7 @@ def _description_for(skill: str) -> str:
 
 
 class TestStubDescriptionTemplate(unittest.TestCase):
-    def test_all_five_stubs_share_the_opener_template(self) -> None:
+    def test_all_stub_skills_share_the_opener_template(self) -> None:
         for skill in STUB_SKILLS:
             with self.subTest(skill=skill):
                 description = _description_for(skill)

@@ -61,6 +61,14 @@ def branch_exists(repo: Path, branch: str) -> bool:
     return run(["git", "-C", str(repo), "rev-parse", "--verify", "--quiet", f"refs/heads/{branch}"]).returncode == 0
 
 
+def is_ancestor(repo: Path, ancestor: str, descendant: str = "HEAD") -> bool:
+    """Whether `ancestor` is an ancestor of (or equal to) `descendant` in
+    `repo`. False for an unresolvable/orphaned `ancestor` -- never raises,
+    so a caller checking freshness against a since-rewritten commit gets a
+    plain FAIL rather than an exception."""
+    return run(["git", "-C", str(repo), "merge-base", "--is-ancestor", ancestor, descendant]).returncode == 0
+
+
 def worktree_registered(repo: Path, path: Path) -> bool:
     """Whether `path` is already registered as a worktree of `repo`."""
     result = run(["git", "-C", str(repo), "worktree", "list", "--porcelain"])

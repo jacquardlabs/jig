@@ -1,0 +1,6 @@
+33c891f582bf85aa42984f3cddfd655495230830 status-flip: task 1 -> REPLAN
+698dede996f0021e7cb5339cc66b94c5548662a6 calc: add is_even(n)
+52d7e797659388d63efd3096ecd21fc1b35d804f plan: hand-author PLAN.md quick-path task 1 (add calc.is_even) -- deliberately wrong Done-means test module for build-skill demo 2
+d663a48e2b4240bfcdd76a2b9166ff27d054889e demo-target: add trivial passing baseline test
+f4472861edc2e3bbee41ecae5d3c70f248692f83 demo-target: make task-execution-discipline skill available (as jig would provide when installed)
+1e96fe4d31709867c53c5982db9c6a9c482ba5f4 demo-target: initial scaffold (clean baseline)

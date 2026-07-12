@@ -1,0 +1,13 @@
+Task complete. TDD cycle followed: wrote failing test (confirmed `AttributeError: module 'calc' has no attribute 'add'`), implemented minimal `add(a, b) -> a + b`, confirmed green on both the cap-item test and the full suite. Scope stayed inside `Do`/`Not here` — only `add` added, only one new test method.
+
+Evidence (`python3 -m unittest tests.test_calc.CalcTest.test_add -v`):
+```
+test_add (tests.test_calc.CalcTest) ... ok
+
+----------------------------------------------------------------------
+Ran 1 test in 0.000s
+
+OK
+```
+
+Commit SHA: `5cabbf2`

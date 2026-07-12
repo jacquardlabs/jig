@@ -8,19 +8,24 @@ Standard library only, matching test_scaffold.py's convention. Run with:
 Checks this story's acceptance criteria mechanically:
 
 1. `skills/coach/SKILL.md`'s `description:` frontmatter opens with the same
-   milestone + doc-citation shape the other four user-invoked stubs
-   (`design`/`plan`/`build`/`finish`) already share -- "STUB -- not yet
-   implemented (jig milestone M<n>, see PRODUCT.md's critical user journeys
-   and DESIGN.md's <citation>). Will become jig's ..." -- rather than
-   omitting the parenthetical and burying its milestone/doc citation at the
-   end of the sentence (gate-audit's Important finding, m1-scaffold epic
-   finale; see docs/studious/premortems and jig issue #28).
+   milestone + doc-citation shape the other three still-stub skills
+   (`design`/`plan`/`finish`) already share -- "STUB -- not yet implemented
+   (jig milestone M<n>, see PRODUCT.md's critical user journeys and
+   DESIGN.md's <citation>). Will become jig's ..." -- rather than omitting
+   the parenthetical and burying its milestone/doc citation at the end of
+   the sentence (gate-audit's Important finding, m1-scaffold epic finale;
+   see docs/studious/premortems and jig issue #28).
+
+   `build` shared this template through M1-M3; story `build-skill` (M4)
+   replaced its stub with real orchestration content, so it is no longer
+   part of this stub-only regression set -- see test_build_skill.py for its
+   own acceptance checks instead.
 2. coach's description keeps citing its own open question (M6, DESIGN.md's
    "Top inconsistencies / risks" section (#4)) rather than silently
    dropping the detail while normalizing the opener.
-3. All five stub descriptions remain valid unquoted YAML plain scalars --
+3. All remaining stub descriptions stay valid unquoted YAML plain scalars --
    no mid-string `": "` (test_discipline_skill.py's existing regression
-   guard, extended here to all five) and no whitespace-then-`#` (a second
+   guard, extended here to all of them) and no whitespace-then-`#` (a second
    failure mode this story's own fix attempt tripped over: a strict YAML
    loader reads it as a comment and silently truncates the rest of the
    value). Cross-checked against a real YAML parse where PyYAML is
@@ -37,8 +42,10 @@ from _frontmatter import FRONTMATTER
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SKILLS_DIR = REPO_ROOT / "skills"
 
-# The five user-invoked skill stubs that share one description template.
-STUB_SKILLS = ("design", "plan", "build", "finish", "coach")
+# The user-invoked skill stubs that still share one description template.
+# `build` graduated out of this set at story build-skill (M4) -- it now
+# ships real content, checked by test_build_skill.py instead.
+STUB_SKILLS = ("design", "plan", "finish", "coach")
 
 # The opener every stub description must share: milestone + doc citation up
 # front, before "Will become jig's ..." -- not buried at the end of the

@@ -1,0 +1,7 @@
+1f9669e status-flip: task 1 -> PASS
+5c3b8d7 evidence: task-1 verify results (Foreman, independent re-check)
+5cabbf2 calc: add add(a, b)
+f22fc77 plan: hand-author PLAN.md quick-path task 1 (add calc.add)
+d663a48 demo-target: add trivial passing baseline test
+f447286 demo-target: make task-execution-discipline skill available (as jig would provide when installed)
+1e96fe4 demo-target: initial scaffold (clean baseline)

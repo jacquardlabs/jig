@@ -55,7 +55,7 @@ Wrote code before the test existed and watched it fail? Delete it. Code
 kept "as reference" gets adapted while writing the test, not written fresh
 from it — delete means delete, then repeat the cycle.
 
-## Pillar 2 — YAGNI: the task's `Not here` is the fence
+## Pillar 2 — YAGNI
 
 Superpowers folds this into a GREEN-step reminder; jig names it its own
 pillar because the checkpoint block carries an explicit scope artifact

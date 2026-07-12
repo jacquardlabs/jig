@@ -1,6 +1,6 @@
 ---
 name: coach
-description: STUB — not yet implemented. Will become jig's coach, the orchestrator that reads /build session verdicts (BUILT | PAUSED | ESCALATED) and helps a stuck loop recover. Its own invocation convention (slash command vs. another mechanism) is an open question flagged in DESIGN.md, to be resolved before M6. Do not invoke for actual coaching work yet; there is no behavior behind this file.
+description: STUB — not yet implemented (jig milestone M6, see PRODUCT.md's critical user journeys and DESIGN.md's "Top inconsistencies / risks" section (#4)). Will become jig's coach — the orchestrator that reads /build session verdicts (BUILT | PAUSED | ESCALATED) and helps a stuck loop recover; its own invocation convention (slash command vs. another mechanism) is still an open question. Do not invoke for actual coaching work yet; there is no behavior behind this file.
 ---
 
 # coach (stub)

@@ -167,29 +167,36 @@ For each task block:
    act — the Foreman never commits on the executor's behalf, since that
    would require the Foreman to inspect (or blindly stage) a diff it isn't
    supposed to see.
-3. **Executor return contract.** The executor's final message must contain,
-   in addition to its narrative summary and `Evidence` prose: the commit
-   SHA it just created, and a fenced JSON block matching `scripts/verify`'s
-   documented `ITEMS_SCHEMA` (`task`, `items[]` with `id`/`kind`/`tier` and
-   either a `command` or an `artifact`/`pattern`) for every numbered
-   `Done means` item in its task block — naming *what to check*, never
-   *whether it passed*. This is the load-bearing distinction that keeps
-   "nothing signs off on itself" intact: the executor supplies the check,
-   `verify` alone decides the result.
-4. **Verify (independent, Foreman-run).** The Foreman writes that JSON
-   block to a file and calls `scripts/verify --items <file> --since
-   <the executor's reported commit SHA> --out <results.json>`. This call
-   always happens *after* the executor's commit, never before — the
-   ordering that keeps `evidence-capture`'s freshness check
-   non-vacuous (`docs/design/build-scripts.md` risk #1: "a naive `now >=
+3. **Executor return contract.** The executor's final message must
+   contain: the commit SHA it just created, plus its narrative summary and
+   `Evidence` prose citing the fresh run behind each numbered `Done means`
+   item. The executor never emits `scripts/verify`'s documented
+   `ITEMS_SCHEMA` JSON itself — its only context is the task's checkpoint
+   block plus Step 1's dispatch boundary line, neither of which mentions
+   that schema. Transcribing it is the Foreman's own next step (Step 4,
+   below), not something asked of a fresh executor.
+4. **Verify (independent, Foreman-run).** The Foreman transcribes the
+   items file itself: one entry per numbered `Done means` item in this
+   task's own checkpoint block (`task`, `items[]` with `id`/`kind`/`tier`
+   and either a `command` or an `artifact`/`pattern`, matching
+   `scripts/verify`'s documented `ITEMS_SCHEMA`) — the block's own
+   `Done means` prose already states each item's kind, tier, and check;
+   the Foreman is transcribing that, never inventing a check the block
+   didn't name. That JSON names *what to check*, never *whether it
+   passed*; only `verify` decides the result. The Foreman then calls
+   `scripts/verify --items <file> --since <the executor's reported commit
+   SHA> --out <results.json>`. This call always happens *after* the
+   executor's commit, never before — the ordering that keeps
+   `evidence-capture`'s freshness check non-vacuous
+   (`docs/design/build-scripts.md` risk #1: "a naive `now >=
    last-commit` check is vacuous whenever the task's own work is still
    uncommitted at capture time"). `verify`'s per-item PASS/FAIL report,
    not the executor's claim, is what the rest of this loop reacts to.
    **Exit code 2 is not a FAIL.** `verify` exits 2 for a usage error — most
-   likely a malformed items JSON, meaning the Foreman mis-transcribed the
-   executor's fenced block rather than the task genuinely failing anything.
-   The Foreman treats this as its own bug: it re-reads the executor's
-   original final message, re-writes the items file, and re-invokes
+   likely a malformed items JSON, meaning the Foreman mis-transcribed this
+   task's checkpoint block's `Done means` lines rather than the task
+   genuinely failing anything. The Foreman treats this as its own bug: it
+   re-reads the checkpoint block, re-writes the items file, and re-invokes
    `verify`, without dispatching a new executor and without counting the
    attempt against the Failure routine's two-failure budget. Only an exit 0
    (PASS) or exit 1 (at least one item FAIL) advances that budget; a
@@ -399,9 +406,11 @@ model's. `PRODUCT.md` names "status flips" as a script concern explicitly;
 true-in-spirit: the Foreman decides *what* status a task reaches (directly
 from `verify`'s `overall` field for PASS, from its own diagnosis for
 REPLAN/ESCALATE), but a script performs the mechanical edit and commit
-either way. "Nothing signs off on itself" is why the executor supplies checks but never results
-(Alternatives considered #4) and why `verify` always runs after, never
-inside, the executor's own subagent turn. "Recommend one action; the human
+either way. "Nothing signs off on itself" is why the checks `verify` runs
+come from this task's own checkpoint block, transcribed by the Foreman,
+never from the executor's self-report (Alternatives considered #4), and
+why `verify` always runs after, never inside, the executor's own subagent
+turn. "Recommend one action; the human
 decides. Propose; never apply" is the failure routine's and cadence's whole
 posture — every REPLAN, ESCALATE, and risk-tagged pause blocks on the human,
 and the Foreman never auto-continues past one. "Standalone-capable" is
@@ -520,9 +529,13 @@ committed to; this story is the first thing that actually walks them.
    independently after the executor's subagent has already ended. Rejected:
    this is the one alternative that would silently violate "nothing signs
    off on itself" — an executor that runs its own verification and reports
-   the outcome (rather than just naming what to check) is grading its own
-   work, exactly the self-report `scripts/verify`'s own docstring and
-   `PRODUCT.md`'s principle exist to close off.
+   the outcome is grading its own work, exactly the self-report
+   `scripts/verify`'s own docstring and `PRODUCT.md`'s principle exist to
+   close off. The executor supplies neither the checks nor the verdict:
+   the Foreman transcribes the verify-shaped items itself from the task's
+   own checkpoint block (its `Done means` lines), and `verify` alone
+   decides PASS/FAIL against the executor's already-committed work — see
+   Step 2, above.
 5. **The Foreman edits the plan file's task heading directly** (its own
    Edit tool, its own `git commit`) instead of calling a dedicated
    `status-flip` script. This was this doc's own original design, and a

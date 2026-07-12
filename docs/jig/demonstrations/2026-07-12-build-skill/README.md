@@ -49,7 +49,7 @@ around that denial. Every dispatch below ran under the harness's ordinary
 `auto` permission mode instead, the same mode this fixer session itself
 runs under.)
 
-## One honest deviation from the literal minimal dispatch text, and why
+## The commit/SHA instruction: an observed gap at demo time, since reconciled into `SKILL.md`
 
 `SKILL.md` describes the dispatch prompt as the task block verbatim plus
 "one boundary line, essentially" naming the isolation boundary and the
@@ -78,19 +78,28 @@ as your last act ... and end your final message with the commit SHA you
 just created."* This is Foreman-side procedural information `SKILL.md`
 step 2.3 already asserts as fact ("commits its own change as its last
 act"), not foreign context (no design doc, no other task, no full plan) —
-but it is an addition beyond the "essentially" boundary-line text as
-literally quoted, made transparently and flagged here rather than silently.
-**Recommend filing this as a follow-up finding** against `SKILL.md`'s
-dispatch-prompt wording (or `task-execution-discipline`'s own content) so a
-future fresh executor's context alone is sufficient — out of scope for this
-fix to resolve itself.
+but at the time this run was captured it was an addition beyond the
+"essentially" boundary-line text as literally quoted, made transparently
+and flagged here rather than silently.
+
+**Update:** `0b7c385` (this same story, committed after this README was
+first written) folded that exact sentence into `SKILL.md` step 2.2's
+boundary line verbatim — *"Commit your change yourself as your last act,
+and end your final message with the commit SHA you just created."* The
+`dispatch-prompt.txt` captured below already carried this sentence, so it
+now matches `SKILL.md`'s boundary line exactly; this is no longer an open
+deviation, and no follow-up finding against `SKILL.md`'s dispatch wording
+is needed.
 
 `verify`'s items JSON was hand-transcribed by this fixer, acting as
 Foreman, directly from each checkpoint block's own numbered `Done means`
 line (which already states `kind`, `tier`, and the literal command in
-prose) — consistent with `SKILL.md` step 5's own framing of a malformed
-items file as "you mis-transcribed the executor's fenced block," i.e. the
-Foreman is expected to be the one who writes this file either way.
+prose) — consistent with `SKILL.md` step 2.5's own framing of a malformed
+items file as "you mis-transcribed this task's checkpoint block's `Done
+means` lines," i.e. the Foreman is expected to be the one who writes this
+file either way (`0b7c385` reworded step 2.5 from "the executor's fenced
+block" to this checkpoint-block-transcription framing; the description
+here already matches the shipped behavior).
 
 ## Demo 1 — real red→green task (`demo1-red-green/`)
 

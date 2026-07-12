@@ -18,4 +18,9 @@ target-version = "py311"
 # bugbear, comprehensions, simplify, perflint, pyflakes-refactor, and
 # flake8-pie. `code-auditor`'s judgment layer picks up structural
 # recognitions a linter misses; CLAUDE.md conventions override this list.
-select = ["B", "C4", "PERF", "PIE", "RUF", "SIM"]
+#
+# extend-select, not select: `select` *replaces* ruff's default rule set
+# (E4/E7/E9/F) rather than adding to it, which would silently disable
+# Pyflakes and the default pycodestyle error checks CLAUDE.md's own
+# checklist calls out (issue #36).
+extend-select = ["B", "C4", "PERF", "PIE", "RUF", "SIM"]

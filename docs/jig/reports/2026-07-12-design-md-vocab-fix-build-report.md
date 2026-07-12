@@ -11,7 +11,7 @@ opened), distinct git/GitHub mechanics from the first demonstration's
 
 ## Step 1 — PR evidence table
 
-Evidence folder: `docs/jig/evidence/2026-07-12-task-1/` (commit
+Evidence folder: `docs/jig/evidence/2026-07-12-design-md-vocab-fix/` (commit
 `3f72252a5602cec029e329d5df93822ce374d028`). Freshness hold
 (`scripts/evidence-freshness`): **PASS** — floored on the folder's own
 manifest commit, not the branch's current `HEAD` (which has since

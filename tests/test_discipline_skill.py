@@ -78,7 +78,6 @@ class TestDisciplineSkillFile(unittest.TestCase):
         self.assertIsNotNone(
             desc_match, f"{SKILL_MD} missing non-empty description: field"
         )
-        self.description = desc_match.group(1)
 
     def test_description_reads_as_model_invoked_trigger(self) -> None:
         desc_match = re.search(

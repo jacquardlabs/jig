@@ -213,6 +213,37 @@ class TestBuildSkillBody(unittest.TestCase):
         self.assertPhraseIn("`status-flip` derives the `PASS` token itself from")
         self.assertPhraseIn("you never hand it a status string on this path")
 
+    def test_step_5_instructs_scratch_path_for_items_and_results(self) -> None:
+        # Issue #45: the Foreman's own transient items.json/results.json
+        # must never land inside the worktree, or evidence-capture's
+        # clean-tree check refuses on task 1 -- before the task can ever
+        # complete, not just before a later one.
+        self.assertPhraseIn(
+            "Write this items file, and `verify`'s `--out results.json` "
+            "below, to a scratch path outside the worktree"
+        )
+        self.assertPhraseIn("never a path under `<worktree>` itself")
+        self.assertPhraseIn("issue #45")
+
+    def test_step_7_evidence_capture_points_at_the_scratch_path_results(self) -> None:
+        # The evidence-capture call in step 7 must reuse step 5's
+        # scratch-path results.json directly, never a copy staged inside
+        # the worktree first -- the same seam issue #45 names.
+        self.assertPhraseIn(
+            "pointing `--artifact` straight at step 5's *scratch-path* "
+            "`results.json`, never at a copy staged inside `<worktree>` first"
+        )
+        self.assertPhraseIn(
+            "`evidence-capture` reads an artifact from wherever `--artifact` names "
+            "it and copies it into the worktree's own evidence directory itself"
+        )
+
+    def test_step_7_status_flip_reuses_the_same_scratch_path_results(self) -> None:
+        self.assertPhraseIn(
+            "the same scratch-path file from step 5 — `status-flip` only "
+            "reads it, never requires it to live in the worktree either"
+        )
+
     def test_inspector_is_an_explicit_no_op_stub_pointing_at_its_issue(self) -> None:
         self.assertIn("no-op", self.body.lower())
         self.assertIn("issue #15", self.body)

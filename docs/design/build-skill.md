@@ -39,10 +39,15 @@ persona is back to "ad hoc prompting" — exactly the alternative
 
 ## Proposed design
 
-One file changes behavior: `skills/build/SKILL.md` — its stub frontmatter
+Two things change behavior. `skills/build/SKILL.md` — its stub frontmatter
 description and body are replaced with the Foreman's real orchestration
-procedure. Nothing under `scripts/` changes (those three scripts are
-already built and are called, not modified, by this story); nothing under
+procedure. And `scripts/status-flip` — one new script, this story's own
+addition, the mechanical status-flip writer `docs/design/build-scripts.md`'s
+Open questions left unresolved ("where 'status flips' actually lands") and
+asked this doc to make a call on; see "Status-flip persistence" below for
+why a script, not the model, performs that write. The three already-built
+scripts (`worktree-setup`, `verify`, `evidence-capture`) are called, not
+modified, by this story. Nothing under
 `skills/task-execution-discipline/` changes (it's read, not edited).
 
 What follows is the shape of that procedure — behavior-level, matching
@@ -54,7 +59,7 @@ implementation decision, not a design-review question per
 ### Roles, restated for this half
 
 - **Foreman** — the main `/build` session (the model invoking the skill).
-  Reads the plan, dispatches, invokes the three scripts, tracks status,
+  Reads the plan, dispatches, invokes the four scripts, tracks status,
   reports the verdict. Per issue #14: **never sees a diff** — it inspects
   outcomes only through `verify`'s and `evidence-capture`'s structured
   output, never by reading the executor's changed files or running
@@ -63,7 +68,10 @@ implementation decision, not a design-review question per
   per task. Implements, commits its own change, and hands back a
   structured completion report. Never sees the design doc, `PLAN.md` in
   full, or any other task's history.
-- **Scripts** — already built; this story is their first real caller.
+- **Scripts** — three of the four are already built (`worktree-setup`,
+  `verify`, `evidence-capture`; story `build-scripts`); this story adds a
+  fourth, `status-flip` (see "Status-flip persistence"), and is the first
+  real caller of all four.
 
 ### Input contract
 
@@ -90,7 +98,20 @@ The Foreman:
    target project's baseline verification command reaches
    `worktree-setup`"): the Foreman reads it from that project's `CLAUDE.md`
    the same way a human would, rather than `worktree-setup` guessing or
-   hardcoding one project's test runner.
+   hardcoding one project's test runner. **If the target project's
+   `CLAUDE.md` names no baseline command** (no "Tests" section or
+   equivalent — the realistic state for `PRODUCT.md`'s secondary persona,
+   who per that document's own admission may have no other jacquardlabs
+   tooling or convention installed at all), the Foreman does not guess one
+   or silently proceed with no baseline check: it stops before any
+   worktree is created and reports **PAUSED**, naming the missing
+   convention explicitly and the action that resolves it: add a "Tests" (or
+   equivalent) baseline-command convention to the target project's
+   `CLAUDE.md`, then re-invoke `/build`. No second input or flag is added
+   to satisfy this case (the Input contract above stays a single optional
+   plan-path argument) — silent unverified building is the one failure
+   mode "Standalone-capable" (graceful, never silent, degradation) rules
+   out here, not a reason to widen `/build`'s own input shape.
 2. Derives a branch/worktree name from the plan file's own name plus a
    timestamp, e.g. `build/<plan-slug>-<YYYYMMDDHHMM>` — timestamped so a
    second `/build` run over the same `PLAN.md` (a resample after a paused
@@ -164,6 +185,17 @@ For each task block:
    last-commit` check is vacuous whenever the task's own work is still
    uncommitted at capture time"). `verify`'s per-item PASS/FAIL report,
    not the executor's claim, is what the rest of this loop reacts to.
+   **Exit code 2 is not a FAIL.** `verify` exits 2 for a usage error — most
+   likely a malformed items JSON, meaning the Foreman mis-transcribed the
+   executor's fenced block rather than the task genuinely failing anything.
+   The Foreman treats this as its own bug: it re-reads the executor's
+   original final message, re-writes the items file, and re-invokes
+   `verify`, without dispatching a new executor and without counting the
+   attempt against the Failure routine's two-failure budget. Only an exit 0
+   (PASS) or exit 1 (at least one item FAIL) advances that budget; a
+   repeated exit 2 after one honest retry is a Foreman-side defect serious
+   enough to pause the session outright (**PAUSED**, naming "verify usage
+   error persisted after retry" as the cause) rather than silently loop.
 5. **Inspect (load-bearing only).** Explicit no-op stub for this pass —
    issue #15's inspector isn't built yet. `/build` does not call it, does
    not simulate it, and does not skip a step that looks like a broken
@@ -172,10 +204,11 @@ For each task block:
    issue #15. (Epic pre-mortem risk #4, addressed directly.)
 6. **On overall PASS:** the Foreman calls `scripts/evidence-capture --task
    <id> --artifact verify:results=<results.json> [...]` for `verify`'s and
-   any probe artifacts, then writes the task's terminal status back into
-   the plan file itself — see "Status-flip persistence," below — and moves
-   to the next task, streaming without a pause (see Cadence) unless the
-   task carries an explicit risk tag.
+   any probe artifacts, then calls `scripts/status-flip` to write the
+   task's terminal status back into the plan file itself — see
+   "Status-flip persistence," below — and moves to the next task, streaming
+   without a pause (see Cadence) unless the task carries an explicit risk
+   tag.
 7. **On any item FAIL:** enters the Failure routine, below, instead of
    advancing.
 
@@ -184,30 +217,63 @@ For each task block:
 `docs/design/build-scripts.md`'s Open questions flagged this explicitly
 ("where 'status flips' actually lands... a fast-follow to this story,
 folded into `build-skill`'s foreman state, or a story not yet filed") and
-asked this doc to make a call. The call: **no new file or script.** The
-Foreman edits the task's own `### Task N` heading in the plan file in
-place, appending its terminal status (e.g. `### Task 1 — Add an explicit
-shutdown call [PASS]`), and commits that single-line edit itself (the
-Foreman's own commit, distinct from the executor's implementation commit).
-The plan file is already the single source of truth for the task; a status
-column bolted onto its own heading is git-diffable, human-readable without
-tooling, and needs no new persistence format — consistent with "minimize
-structural drift, prefer reuse over creation" and with `PRODUCT.md`'s "What
-we're NOT building" ruling out new work-ledger machinery. Because the
-status written there is always transcribed from `verify`'s or the failure
-routine's own output — never a value the Foreman invents — this still
-satisfies "mechanics in scripts, judgment in the model" (the *verdict*
-comes from a script; the *transcription* is the Foreman's narrow, mechanical
-follow-through).
+asked this doc to make a call. The call: **no new file or persistence
+format — but a new script performs the write.** `DESIGN.md`'s Vocabulary
+table already commits `/build` task status to being "flipped by scripts
+only, never the model" (line 40), and `PRODUCT.md`'s "Judgment in the
+model, mechanics in scripts" principle names "status flips" by name as a
+script concern. An earlier draft of this section had the Foreman edit the
+plan file's own heading directly with its own tools — that draft shipped
+behavior contradicting both of those unchanged, ratified statements, and
+left nothing to catch a mis-transcription (heading says `PASS`, `verify`'s
+own `results.json` says `FAIL`). This revision closes that gap by adding
+`scripts/status-flip`, a fourth script this story builds alongside
+`SKILL.md`:
+
+- **Interface**: `scripts/status-flip --plan <path> --task <label> --results
+  <results.json>` (the PASS path), or `--plan <path> --task <label> --status
+  REPLAN|ESCALATE --reason "<text>"` (the failure-routine path, no
+  `--results` — there is no script verdict to bind against a Foreman
+  judgment call). Locates the single `### Task <label>` heading in `<path>`,
+  refuses (exit 2) if it finds zero or more than one match, or if that
+  heading already carries a terminal-status suffix (idempotency: a status
+  flips exactly once). Appends the suffix, writes the file, and creates the
+  commit itself — a fixed, script-authored message, distinct from the
+  executor's own implementation commit and from any commit the Foreman
+  makes elsewhere.
+- **The PASS path is where the integrity check lives, by construction, not
+  as a bolted-on extra check.** Given `--results`, the script reads that
+  file's own `overall` field and derives the token itself (`PASS` iff
+  `overall == "PASS"`); it never accepts a status string the Foreman
+  supplies for this path. The Foreman cannot mis-transcribe a FAIL as a
+  PASS here, because the Foreman never gets to state the PASS token at
+  all — only to hand the script the same `results.json` path it already
+  wrote in Step 2.4. If `--results` doesn't parse, has no `overall` field,
+  or `overall != "PASS"`, the script refuses (exit 2) rather than writing
+  anything, which the Foreman treats the same way it treats any other
+  `status-flip` usage error: a bug in its own invocation, not a task
+  verdict.
+- **The REPLAN/ESCALATE path is still the Foreman's judgment**, per the
+  Failure routine below and this doc's own Principle-alignment section —
+  no script could make that call. What moves to the script here is only
+  the *mechanical write*: once the Foreman has decided REPLAN or ESCALATE,
+  it hands that decided token to `status-flip`, which performs the same
+  heading-edit-and-commit mechanics as the PASS path. The model still
+  never edits the plan file's bytes or runs `git commit` on it directly.
+- The plan file remains the single source of truth for a task's status —
+  unchanged from the original call — and still needs no new format, no new
+  ledger, and stays git-diffable in the same history `/gate-audit` already
+  reads. Only *who performs the edit* changed, not *what* gets recorded or
+  *where*.
 
 This is deliberately narrower than "a plan the loop can amend under its own
 failure pressure," which `PRODUCT.md`'s "What we're NOT building" rules out.
-The Foreman never rewrites a checkpoint block's `Do`/`Not here`/`Done means`
-content — the only thing it ever writes is a terminal-status suffix on a
-task's own heading, and only after a script (`verify`, or the failure
-routine's own diagnosis) has already produced that verdict. Actually
-revising a block's content stays a `REPLAN` pause for the human, never
-something the loop does to itself.
+Nothing — not the Foreman, not `status-flip` — ever rewrites a checkpoint
+block's `Do`/`Not here`/`Done means` content; the only thing `status-flip`
+ever writes is a terminal-status suffix on a task's own heading, driven by
+either `verify`'s own `results.json` or the Foreman's already-made REPLAN/
+ESCALATE diagnosis. Actually revising a block's content stays a `REPLAN`
+pause for the human, never something the loop does to itself.
 
 ### Failure routine (issue #14, step 3)
 
@@ -275,17 +341,33 @@ failure lands on the same item as the first").
 | Verdict | When |
 |---|---|
 | `BUILT` | Every task in the plan reaches `PASS`. Hands to `/gate-audit` (or reports "ready for review" if studious isn't installed — graceful degradation, `PRODUCT.md` principle "Standalone-capable"). |
-| `PAUSED` | A dirty baseline stopped Setup, or a task's failure routine resolved to `REPLAN`, or a risk-tagged task is waiting for pre-dispatch ack. Resumable once the human acts. |
+| `PAUSED` | A dirty (or missing) baseline stopped Setup, or a task's failure routine resolved to `REPLAN`, or a risk-tagged task is waiting for pre-dispatch ack, or a `status-flip`/`verify` usage error persisted after retry. Resumable once the human acts. |
 | `ESCALATED` | A task's failure routine resolved to `ESCALATE`. Terminal for this session — hands back to `/design` in revision mode per `PRODUCT.md`'s Revision loop. |
+
+**`PAUSED` is never reported bare.** The table above collapses four
+distinct causes (missing/dirty baseline, `REPLAN`, a risk-tagged
+pre-dispatch ack, a persisted script usage error) into one token, and a
+bare "PAUSED" would leave the human guessing which. Every `PAUSED` report
+names, in the same message: which of those four triggered it, and the
+specific action that resumes `/build` (fix the baseline and re-invoke;
+revise the checkpoint block by hand and re-invoke; acknowledge the risk
+tag to proceed; fix the transcription bug and re-invoke). This is a
+commitment on the report's content, not a new verdict token — `PAUSED`
+stays a single entry in the Vocabulary table `DESIGN.md` already owns.
 
 ### Principle alignment
 
 "Judgment in the model, mechanics in scripts" is this story's central
 shape: the Foreman decides FIX-vs-RESAMPLE and REPLAN-vs-ESCALATE (judgment
 calls no script could make), while every PASS/FAIL determination, every
-status flip's *source of truth*, and every evidence write are the three
-already-built scripts' outputs, transcribed rather than asserted. "Nothing
-signs off on itself" is why the executor supplies checks but never results
+evidence write, and — as of this revision — every status flip's *actual
+write to the plan file* are script outputs and script mechanics, not the
+model's. `PRODUCT.md` names "status flips" as a script concern explicitly;
+`status-flip` is what makes that literally true here, not just
+true-in-spirit: the Foreman decides *what* status a task reaches (directly
+from `verify`'s `overall` field for PASS, from its own diagnosis for
+REPLAN/ESCALATE), but a script performs the mechanical edit and commit
+either way. "Nothing signs off on itself" is why the executor supplies checks but never results
 (Alternatives considered #4) and why `verify` always runs after, never
 inside, the executor's own subagent turn. "Recommend one action; the human
 decides. Propose; never apply" is the failure routine's and cadence's whole
@@ -315,8 +397,10 @@ named near-term dogfood target, with journey 1 (Full cycle) and journey 3
    `task-execution-discipline`, commits, and reports back its commit SHA,
    its `Evidence`, and a `verify`-shaped items JSON.
 4. The Foreman independently re-runs `verify` after that commit. A clean
-   PASS: `evidence-capture` writes the dated evidence folder, the Foreman
-   annotates the task's status in `PLAN.md` and commits that annotation.
+   PASS: `evidence-capture` writes the dated evidence folder, then the
+   Foreman calls `status-flip`, which reads `verify`'s own `results.json`,
+   derives the PASS token itself, annotates the task's status in `PLAN.md`,
+   and commits that annotation.
 5. All tasks PASS (here, the one task): session verdict `BUILT`. The
    developer runs `/gate-audit` next, per the quick path, and can open
    `docs/jig/evidence/<date>-<task>/` to see exactly what was independently
@@ -347,7 +431,10 @@ committed to; this story is the first thing that actually walks them.
   `scripts/evidence-capture`** — this story is their first caller, not a
   change to their contracts. Any gap found while wiring them in (e.g. a
   flag that doesn't exist yet) is a finding for the build phase to
-  surface, not a license to redesign them here.
+  surface, not a license to redesign them here. (`scripts/status-flip` is
+  a new fourth script this story does add and build — see "Status-flip
+  persistence" — not an exception to this bullet, which only rules out
+  changing the three pre-existing scripts' contracts.)
 - **Modifying `skills/task-execution-discipline/SKILL.md`** — read, not
   edited, by this story.
 - **Risk-tag assignment logic** — that's `/plan`'s job (`DESIGN.md`
@@ -386,14 +473,16 @@ committed to; this story is the first thing that actually walks them.
    and removes the ambiguity outright; it doesn't change the skill from
    model-invoked to user-invoked, since the pointer only names the trigger
    condition the skill's own description already declares.
-3. **A separate status-tracking file or script** (e.g., a `BUILD-STATE.json`
-   the Foreman maintains) instead of annotating the plan file's own task
-   headings in place. Rejected per "minimize structural drift, prefer reuse
-   over creation" and `PRODUCT.md`'s explicit "no work-ledger machinery" —
-   the plan file is already the single source of truth for a task; a status
-   suffix on its own heading needs no new format, no new script, and stays
-   trivially diffable in the same commit history `/gate-audit` already
-   reads.
+3. **A separate status-tracking file** (e.g., a `BUILD-STATE.json` the
+   Foreman or `status-flip` maintains) instead of annotating the plan
+   file's own task headings in place. Rejected per "minimize structural
+   drift, prefer reuse over creation" and `PRODUCT.md`'s explicit "no
+   work-ledger machinery" — the plan file is already the single source of
+   truth for a task; a status suffix on its own heading needs no new
+   persistence format and stays trivially diffable in the same commit
+   history `/gate-audit` already reads. (This alternative is about
+   introducing a new *format/file*; see #5, below, for the separate
+   question of who performs the write to the existing plan file.)
 4. **Let the executor itself invoke `scripts/verify`** and report the
    result up to the Foreman, instead of the Foreman invoking it
    independently after the executor's subagent has already ended. Rejected:
@@ -402,24 +491,41 @@ committed to; this story is the first thing that actually walks them.
    the outcome (rather than just naming what to check) is grading its own
    work, exactly the self-report `scripts/verify`'s own docstring and
    `PRODUCT.md`'s principle exist to close off.
+5. **The Foreman edits the plan file's task heading directly** (its own
+   Edit tool, its own `git commit`) instead of calling a dedicated
+   `status-flip` script. This was this doc's own original design, and a
+   design-review pass flipped it: it contradicts `DESIGN.md`'s Vocabulary
+   table ("flipped by scripts only, never the model," line 40) and
+   `PRODUCT.md`'s "Judgment in the model, mechanics in scripts" principle,
+   which names "status flips" as a script concern by name — a mechanical
+   text edit and commit is exactly the kind of judgment-free operation
+   that principle assigns to scripts. It also leaves no structural
+   guarantee against a mis-transcription (a heading written `PASS` while
+   `verify`'s own `results.json` says `FAIL`) — nothing rechecks the two
+   against each other. Rejected in favor of `status-flip`, which derives
+   the PASS token directly from `results.json` rather than accepting the
+   Foreman's word for it (see "Status-flip persistence").
 
 ## Operational readiness
 
 `skills/build/SKILL.md` is a prompt file read by a Claude Code session, not
 a deployed service — no runtime process, no data migration.
 
-- **Rollout**: replaces the M1 stub's frontmatter/body in place; no
-  feature flag, no staged rollout. Nothing else in the repo changes
-  behavior as a side effect of this file changing.
-- **Rollback**: `git revert` the commit that replaces the stub; the three
-  scripts and the discipline skill are unaffected since this story doesn't
-  touch them.
+- **Rollout**: replaces the M1 stub's frontmatter/body in place, and adds
+  one new script, `scripts/status-flip`, alongside the three already
+  shipped by story `build-scripts`; no feature flag, no staged rollout.
+  Nothing else in the repo changes behavior as a side effect of this
+  story.
+- **Rollback**: `git revert` the commits that replace the stub and add
+  `status-flip`; the three pre-existing scripts and the discipline skill
+  are unaffected since this story doesn't touch them.
 - **Failure visibility**: this is the one story in the epic with an actual
   "production" analog — a live `/build` session a human is watching in
   real time. Its observability surface is exactly what the design produces:
   the dated `docs/jig/evidence/<date>-<task>/` folder per PASSed task, the
-  in-place status annotation on the plan file's own task headings, and the
-  session verdict (`BUILT`/`PAUSED`/`ESCALATED`) reported directly to the
+  in-place status annotation `status-flip` writes to the plan file's own
+  task headings, and the session verdict (`BUILT`/`PAUSED`/`ESCALATED`)
+  reported directly to the
   invoking human — no separate log aggregator or metrics dashboard is
   needed or proposed for a foreground, human-attended CLI/chat workflow.
   The acceptance criteria's required demonstration (one real red→green
@@ -441,12 +547,16 @@ a deployed service — no runtime process, no data migration.
   one, bounded, to keep the mechanism simple and avoid an unbounded retry
   loop (itself an anti-cleverness concern) — but hasn't been tested against
   a real flaky suite yet, only reasoned about.
-- **What the Foreman does if `scripts/verify` itself exits 2** (a usage
-  error — malformed items JSON, meaning the Foreman mis-transcribed the
-  executor's report rather than the task genuinely failing). This is a
-  Foreman-side bug distinct from a task FAIL and probably warrants a
-  narrower "retry the transcription, don't count it against the two-failure
-  budget" rule, but the exact handling isn't fixed here.
+- **Resolved by this revision** (previously open): what the Foreman does if
+  `scripts/verify` or `scripts/status-flip` itself exits 2 (a usage error).
+  See Step 2.4 and "Status-flip persistence" — either is treated as a
+  Foreman-side bug distinct from a task FAIL and doesn't count against the
+  Failure routine's two-failure budget; a repeated exit 2 after one retry
+  pauses the session instead of looping.
+- **`status-flip`'s exact heading-match algorithm** (e.g., matching on the
+  numeric task label vs. the full heading text) is a build-phase detail —
+  this doc commits to "exactly one match or refuse," not the literal
+  matching implementation.
 - **Whether `/gate-audit` (or a human) needs anything from `/build` beyond
   the evidence folder and the annotated `PLAN.md`** to pick up the quick
   path cleanly — this doc assumes those two artifacts are sufficient

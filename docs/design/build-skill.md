@@ -435,8 +435,10 @@ named near-term dogfood target, with journey 1 (Full cycle) and journey 3
 3. On a clean baseline, the Foreman splits the plan into task blocks and, for
    the first (only, in the quick path) task, dispatches a fresh executor
    with exactly that task's block. The executor implements under
-   `task-execution-discipline`, commits, and reports back its commit SHA,
-   its `Evidence`, and a `verify`-shaped items JSON.
+   `task-execution-discipline`, commits, and reports back its commit SHA
+   plus its narrative summary and `Evidence` prose — never a `verify`-shaped
+   items JSON, which the Foreman transcribes itself, from the task's own
+   checkpoint block, as its own next step.
 4. The Foreman independently re-runs `verify` after that commit. A clean
    PASS: `evidence-capture` writes the dated evidence folder, then the
    Foreman calls `status-flip`, which reads `verify`'s own `results.json`,

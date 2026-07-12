@@ -22,8 +22,10 @@ test_discipline_skill.py already takes for its own sibling skill):
 4. The Failure routine's two-step shape (FIX/RESAMPLE on a first FAIL, one
    flake-ruling-out re-verify then REPLAN/ESCALATE on a genuine second FAIL
    on the *same* item) and "no timeout auto-continue" are all named.
-5. `verify` is called only after the executor's own commit, keyed to that
-   commit's own SHA (not the branch tip) -- premortem risk #4.
+5. `verify` is called only after the executor's own commit -- premortem
+   risk #4 -- and its `--since` freshness floor is a fresh per-dispatch
+   timestamp, never the executor's own commit SHA (that would make a
+   `probe` item's own artifact always predate it -- issue #44).
 6. `status-flip`'s PASS path is described deriving its token from
    `results.json` alone, never from a Foreman-supplied status string --
    premortem risk #2's mis-transcription guard.
@@ -195,7 +197,20 @@ class TestBuildSkillBody(unittest.TestCase):
 
     def test_verify_ordered_strictly_after_executor_commit(self) -> None:
         self.assertPhraseIn("always happens *after* the executor's own commit, never")
-        self.assertPhraseIn("--since <the executor's reported commit SHA>")
+        self.assertPhraseIn("--since <this attempt's dispatch timestamp from step 2.2>")
+
+    def test_verify_since_floor_is_not_the_executors_own_commit_sha(self) -> None:
+        # Issue #44: a probe artifact is written to disk before it's
+        # committed, so its mtime is always at or before that very
+        # commit's own timestamp -- using the executor's own commit SHA as
+        # --since makes every probe item structurally unpassable. SKILL.md
+        # must no longer instruct that value, and must capture a fresh
+        # per-dispatch timestamp instead (including on Failure-routine
+        # retries).
+        self.assertNotIn("--since <the executor's reported commit SHA>", self.body)
+        self.assertPhraseIn("Capture this attempt's dispatch timestamp")
+        self.assertPhraseIn("Never the executor's own reported commit SHA")
+        self.assertPhraseIn("capture a fresh dispatch timestamp per step 2.2 for each one")
 
     def test_verify_exit_2_is_not_a_task_fail(self) -> None:
         self.assertPhraseIn("Exit code 2 from `verify` is not a task FAIL")

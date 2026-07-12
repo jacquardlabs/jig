@@ -193,15 +193,31 @@ For each task block, in order:
    as a step to skip past like a broken reference: this is a named,
    deliberate pass-through straight from step 5 to step 7. (See issue #15.)
 7. **On overall PASS:**
+   - `verify`'s own output (`results.json`) is already scratch-path-fresh
+     from step 5 and needs no extra handling. Any *other* artifact a
+     `probe` item names is a different case: it's a file the executor
+     wrote *and committed* inside `<worktree>` as part of its own commit,
+     so its mtime is always at or before that commit's own timestamp — the
+     same structural fact issue #44 diagnosed for `verify`'s `--since`
+     floor, this time tripping `evidence-capture`'s own stale-artifact
+     check (it refuses anything whose mtime predates the last commit).
+     Before calling `evidence-capture`, **copy each such artifact into the
+     scratch dir with a plain, non-preserving copy** (e.g. `cp
+     <worktree>/<artifact> <scratch-path>/<label>` — never `cp -p`, and
+     never a metadata-preserving copy if scripting this) and point
+     `--artifact` at the copy, never at the in-worktree original. A plain
+     copy gets a brand-new mtime at copy time, which happens here, after
+     the executor's commit — so the copy clears the same gate the original
+     never could.
    - Call `scripts/evidence-capture --task <id> --repo <worktree> --artifact verify:results=<scratch-path>/results.json [...]`
-     for `verify`'s output and any other artifacts the task's `probe` items
-     produced — pointing `--artifact` straight at step 5's *scratch-path*
-     `results.json`, never at a copy staged inside `<worktree>` first.
-     `evidence-capture` reads an artifact from wherever `--artifact` names
-     it and copies it into the worktree's own evidence directory itself; it
-     never needs the source file to already live in the worktree. This is
-     what lets this call succeed on task 1: with the items file and
-     `results.json` kept outside `<worktree>` throughout step 5, the only
+     — `verify:results` plus one `--artifact` per probe item's *copy* from
+     above, pointing `--artifact` straight at each scratch-path file, never
+     at a path staged inside `<worktree>` first. `evidence-capture` reads
+     an artifact from wherever `--artifact` names it and copies it into
+     the worktree's own evidence directory itself; it never needs the
+     source file to already live in the worktree. This is what lets this
+     call succeed on task 1: with the items file, `results.json`, and any
+     probe-artifact copies kept outside `<worktree>` throughout, the only
      thing present in the worktree at this point is the executor's own
      committed change, so `evidence-capture`'s clean-tree check has a real,
      clean tree to check (issue #45) instead of refusing before task 1 ever

@@ -245,12 +245,28 @@ class TestBuildSkillBody(unittest.TestCase):
         # scratch-path results.json directly, never a copy staged inside
         # the worktree first -- the same seam issue #45 names.
         self.assertPhraseIn(
-            "pointing `--artifact` straight at step 5's *scratch-path* "
-            "`results.json`, never at a copy staged inside `<worktree>` first"
+            "pointing `--artifact` straight at each scratch-path file, never "
+            "at a path staged inside `<worktree>` first"
         )
         self.assertPhraseIn(
             "`evidence-capture` reads an artifact from wherever `--artifact` names "
             "it and copies it into the worktree's own evidence directory itself"
+        )
+
+    def test_step_7_probe_artifacts_get_a_fresh_copy_before_evidence_capture(self) -> None:
+        # m4-verify-fixes epic-finale audit, code-auditor finding 1: a probe
+        # item's own artifact is committed by the executor inside the
+        # worktree, so its mtime is always at or before that commit's own
+        # timestamp -- the same structural fact issue #44 diagnosed for
+        # verify's --since floor, this time tripping evidence-capture's own
+        # stale-artifact refusal. Step 7 must instruct a fresh, non-preserving
+        # copy before handing such an artifact to --artifact.
+        self.assertPhraseIn(
+            "copy each such artifact into the scratch dir with a plain, "
+            "non-preserving copy"
+        )
+        self.assertPhraseIn(
+            "point `--artifact` at the copy, never at the in-worktree original"
         )
 
     def test_step_7_status_flip_reuses_the_same_scratch_path_results(self) -> None:

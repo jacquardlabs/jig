@@ -147,8 +147,18 @@ For each task block, in order:
    block's own `Done means` prose already states each item's kind, tier,
    and check; you are transcribing that, never inventing a check the
    block didn't name. That JSON names *what to check*, never *whether it
-   passed*; only `verify` decides the result. Then call
-   `scripts/verify --items <file> --since <the executor's reported commit SHA> --repo <worktree> --out <results.json>`.
+   passed*; only `verify` decides the result.
+
+   **Write this items file, and `verify`'s `--out results.json` below, to a
+   scratch path outside the worktree** — a fresh directory under the
+   system temp dir (e.g. `mktemp -d`), or wherever this session already
+   keeps working files — never a path under `<worktree>` itself. These are
+   the Foreman's own transient working notes, not the executor's committed
+   change, and `evidence-capture` (step 7) refuses to run against a dirty
+   tree: the moment either file lands inside the worktree it shows up as
+   untracked in `git status --porcelain`, and the very next call in this
+   same task — not just a later one — refuses (issue #45). Then call
+   `scripts/verify --items <scratch-path>/items.json --since <the executor's reported commit SHA> --repo <worktree> --out <scratch-path>/results.json`.
    This call always happens *after* the executor's own commit, never
    before — reversing that order makes `evidence-capture`'s freshness
    check vacuous. `verify`'s per-item PASS/FAIL report is what you react
@@ -169,9 +179,19 @@ For each task block, in order:
    as a step to skip past like a broken reference: this is a named,
    deliberate pass-through straight from step 5 to step 7. (See issue #15.)
 7. **On overall PASS:**
-   - Call `scripts/evidence-capture --task <id> --repo <worktree> --artifact verify:results=<results.json> [...]`
+   - Call `scripts/evidence-capture --task <id> --repo <worktree> --artifact verify:results=<scratch-path>/results.json [...]`
      for `verify`'s output and any other artifacts the task's `probe` items
-     produced.
+     produced — pointing `--artifact` straight at step 5's *scratch-path*
+     `results.json`, never at a copy staged inside `<worktree>` first.
+     `evidence-capture` reads an artifact from wherever `--artifact` names
+     it and copies it into the worktree's own evidence directory itself; it
+     never needs the source file to already live in the worktree. This is
+     what lets this call succeed on task 1: with the items file and
+     `results.json` kept outside `<worktree>` throughout step 5, the only
+     thing present in the worktree at this point is the executor's own
+     committed change, so `evidence-capture`'s clean-tree check has a real,
+     clean tree to check (issue #45) instead of refusing before task 1 ever
+     completes.
    - **Commit the evidence directory `evidence-capture` just wrote** — a
      plain `git add`/`git commit` of exactly that dated folder, distinct
      from `status-flip`'s own commit below. `evidence-capture` writes
@@ -179,7 +199,9 @@ For each task block, in order:
      dirty, which makes the *next* task's `evidence-capture` call refuse
      against it (it requires a clean tree — see its own freshness rule).
      Do this before calling `status-flip`, not after.
-   - Call `scripts/status-flip --plan <path> --task <label> --results <results.json>`.
+   - Call `scripts/status-flip --plan <path> --task <label> --results <scratch-path>/results.json`,
+     the same scratch-path file from step 5 — `status-flip` only reads it,
+     never requires it to live in the worktree either.
      `status-flip` derives the `PASS` token itself from `results.json`'s
      own `overall` field — you never hand it a status string on this path.
    - Move to the next task. A `LOW`-cadence task streams straight through

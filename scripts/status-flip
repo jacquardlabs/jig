@@ -184,7 +184,14 @@ def main(argv: list[str]) -> int:
     if args.reason:
         commit_message += f"\n\n{args.reason}"
 
-    add_result = run(["git", "-C", str(repo), "add", "--", str(plan_path.resolve())])
+    # -f: the plan file this script commits is routinely gitignored by the
+    # target project's own convention (jig's own .gitignore excludes
+    # `/PLAN.md` for exactly this reason -- disposable scaffolding that
+    # dies at merge, per decision 12). Without -f, a plain `git add` on a
+    # still-untracked, ignored path refuses outright, which would make this
+    # script's own documented job ("commits that annotation") structurally
+    # impossible on the one repo (jig itself) most likely to run it.
+    add_result = run(["git", "-C", str(repo), "add", "-f", "--", str(plan_path.resolve())])
     if add_result.returncode != 0:
         print(f"error: 'git add' failed: {add_result.stderr}", file=sys.stderr)
         return 2

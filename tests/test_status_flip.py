@@ -360,5 +360,45 @@ class TestStatusFlipCommits(unittest.TestCase):
             self.assertIn("status-flip: task 1 -> PASS", messages)
 
 
+class TestStatusFlipGitignoredPlan(unittest.TestCase):
+    """Regression test for a real gap the M5 finish-skill epic's own required
+    /build demonstration surfaced: jig's own repo gitignores `/PLAN.md`
+    (decision 12 -- disposable scaffolding that dies at merge), so a fresh,
+    still-untracked PLAN.md is exactly the ignored-and-untracked shape a
+    plain `git add` refuses outright. Without `-f`, this script's own
+    documented job ("commits that annotation") is structurally impossible
+    on the one repo (jig itself) most likely to run it -- every existing
+    test above sidesteps this because `write_plan` pre-commits PLAN.md
+    before status-flip ever runs, which an already-tracked path never
+    triggers."""
+
+    def test_commits_a_plan_file_gitignored_by_the_target_repo(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp) / "repo"
+            repo.mkdir()
+            init_repo(repo)
+            (repo / ".gitignore").write_text("/PLAN.md\n", encoding="utf-8")
+            subprocess.run(["git", "add", ".gitignore"], cwd=repo, check=False, capture_output=True)
+            subprocess.run(["git", "commit", "-q", "-m", "ignore PLAN.md"], cwd=repo, check=False, capture_output=True)
+
+            # Deliberately does NOT call write_plan (which pre-commits PLAN.md,
+            # masking this exact bug) -- PLAN.md is written fresh and left
+            # untracked, matching a real /build session's own PLAN.md.
+            plan_path = repo / "PLAN.md"
+            plan_path.write_text(PLAN_TEXT, encoding="utf-8")
+            results = write_results(Path(tmp), "PASS")
+
+            result = run_script(["--plan", str(plan_path), "--task", "1", "--results", str(results)])
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("### Task 1 — Add a thing [PASS]", plan_path.read_text(encoding="utf-8"))
+            messages = git_log_messages(repo)
+            self.assertIn("status-flip: task 1 -> PASS", messages)
+            tracked = subprocess.run(
+                ["git", "-C", str(repo), "ls-files", "PLAN.md"], capture_output=True, text=True, check=False
+            ).stdout.strip()
+            self.assertEqual(tracked, "PLAN.md")
+
+
 if __name__ == "__main__":
     sys.exit(unittest.main())

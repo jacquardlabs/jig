@@ -173,6 +173,14 @@ class TestBuildSkillBody(unittest.TestCase):
         self.assertPhraseIn("Exit code 2 from `verify` is not a task FAIL")
         self.assertPhraseIn("does **not** count against the Failure routine's two-failure budget")
 
+    def test_evidence_directory_is_committed_before_status_flip(self) -> None:
+        # A real smoke-test run surfaced this gap: evidence-capture writes
+        # files but never commits them, so the *next* task's
+        # evidence-capture call refuses against the resulting dirty tree
+        # unless the Foreman commits the evidence directory itself first.
+        self.assertPhraseIn("Commit the evidence directory `evidence-capture` just wrote")
+        self.assertPhraseIn("Do this before calling `status-flip`, not after")
+
     def test_status_flip_pass_path_derives_token_from_results_only(self) -> None:
         self.assertPhraseIn("`status-flip` derives the `PASS` token itself from")
         self.assertPhraseIn("you never hand it a status string on this path")

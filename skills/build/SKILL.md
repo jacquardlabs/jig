@@ -160,6 +160,13 @@ For each task block, in order:
    - Call `scripts/evidence-capture --task <id> --repo <worktree> --artifact verify:results=<results.json> [...]`
      for `verify`'s output and any other artifacts the task's `probe` items
      produced.
+   - **Commit the evidence directory `evidence-capture` just wrote** — a
+     plain `git add`/`git commit` of exactly that dated folder, distinct
+     from `status-flip`'s own commit below. `evidence-capture` writes
+     files but never commits them; skip this and the working tree stays
+     dirty, which makes the *next* task's `evidence-capture` call refuse
+     against it (it requires a clean tree — see its own freshness rule).
+     Do this before calling `status-flip`, not after.
    - Call `scripts/status-flip --plan <path> --task <label> --results <results.json>`.
      `status-flip` derives the `PASS` token itself from `results.json`'s
      own `overall` field — you never hand it a status string on this path.

@@ -33,6 +33,13 @@ test_discipline_skill.py already takes for its own sibling skill):
    own resume action -- premortem risk #6.
 9. No `SKILL.md` is nested deeper than the directory's top level (regression
    guard for the same failure mode test_scaffold.py guards against).
+10. The dispatch prompt's boundary line itself instructs the executor to
+    commit and return the SHA, and the executor-return contract no longer
+    claims the executor emits verify's ITEMS_SCHEMA JSON -- the Foreman
+    transcribes that JSON from the checkpoint block's own `Done means`
+    lines instead (gate-acceptance fix-and-retry finding on this story:
+    the dispatch prompt never taught the executor to commit or hand back
+    a SHA/JSON, contradicted by the demonstrated evidence).
 """
 from __future__ import annotations
 
@@ -151,6 +158,27 @@ class TestBuildSkillBody(unittest.TestCase):
         self.assertIn("design doc", self.body.lower())
         self.assertIn("other task", self.body.lower())
         self.assertPhraseIn("Nothing else goes into the dispatch prompt")
+
+    def test_dispatch_prompt_tells_executor_to_commit_and_return_the_sha(self) -> None:
+        # gate-acceptance fix-and-retry finding: the dispatch prompt must
+        # itself instruct the commit + SHA hand-back that step 2.4 relies
+        # on -- a fresh executor given only the task block + boundary line
+        # has no other way to learn this convention (demonstrated gap in
+        # docs/jig/demonstrations/2026-07-12-build-skill/README.md).
+        self.assertPhraseIn("Commit your change yourself as your last act, and end your final message with the commit SHA you just created")
+
+    def test_executor_return_contract_does_not_claim_a_fenced_json_block(self) -> None:
+        # The executor's context (task block + boundary line) never
+        # mentions verify's ITEMS_SCHEMA, so step 2.4 must not claim the
+        # executor emits that JSON -- the Foreman transcribes it instead
+        # (step 2.5), matching the demonstrated behavior in this story's
+        # evidence folder.
+        self.assertNotIn("fenced JSON block", self.body)
+        self.assertPhraseIn("The executor never emits `scripts/verify`'s `ITEMS_SCHEMA` JSON itself")
+
+    def test_foreman_transcribes_items_from_the_checkpoint_block(self) -> None:
+        self.assertPhraseIn("Transcribe the items file yourself")
+        self.assertPhraseIn("one entry per numbered `Done means` item in *this task's own checkpoint block*")
 
     def test_failure_routine_names_fix_and_resample(self) -> None:
         for token in ("FIX", "RESAMPLE"):

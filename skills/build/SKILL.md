@@ -115,28 +115,39 @@ For each task block, in order:
      you have. The design doc, the full PLAN.md, and every other task's
      history are out of scope for you. Before writing any implementation
      code, or claiming this task's Done means is satisfied, invoke the
-     task-execution-discipline skill."*
+     task-execution-discipline skill. Commit your change yourself as your
+     last act, and end your final message with the commit SHA you just
+     created."*
 
    Nothing else goes into the dispatch prompt — not the design doc, not
    `PLAN.md` in full, not a prior task's history, not this session's own
    conversation. This is the load-bearing isolation guarantee the
    acceptance criteria and the epic pre-mortem both name explicitly:
    inspect a real dispatch prompt before trusting it, and confirm it
-   contains only these two things.
+   contains only these two things — the boundary line is one line of
+   Foreman-side procedural fact (step 2.3 already asserts the executor
+   commits its own change), not foreign context about the design doc,
+   `PLAN.md`, or another task.
 3. **Execute.** The executor works under `task-execution-discipline`'s
    three pillars (TDD-per-capability, YAGNI bounded by `Not here`,
    verification-before-completion) and commits its own change as its last
    act. You never commit on the executor's behalf — that would require
    inspecting a diff you aren't supposed to see.
 4. **Read the executor's return.** Its final message must contain: the
-   commit SHA it just created, its narrative summary and `Evidence` prose,
-   and a fenced JSON block matching `scripts/verify`'s `ITEMS_SCHEMA`
-   (`task`, `items[]` with `id`/`kind`/`tier` and a `command` or
-   `artifact`/`pattern`) — one entry per numbered `Done means` item. That
-   JSON names *what to check*, never *whether it passed*; only `verify`
-   decides the result.
-5. **Verify, independently.** Write the executor's fenced JSON block to a
-   file, then call
+   commit SHA it just created, plus its narrative summary and `Evidence`
+   prose citing the fresh run behind each numbered `Done means` item. The
+   executor never emits `scripts/verify`'s `ITEMS_SCHEMA` JSON itself —
+   its only context is the task block and the boundary line above, neither
+   of which mentions that schema. Transcribing it is the Foreman's own
+   next step (2.5), not something asked of a fresh executor.
+5. **Verify, independently.** Transcribe the items file yourself: one
+   entry per numbered `Done means` item in *this task's own checkpoint
+   block* (`task`, `items[]` with `id`/`kind`/`tier` and a `command` or
+   `artifact`/`pattern`, matching `scripts/verify`'s `ITEMS_SCHEMA`) — the
+   block's own `Done means` prose already states each item's kind, tier,
+   and check; you are transcribing that, never inventing a check the
+   block didn't name. That JSON names *what to check*, never *whether it
+   passed*; only `verify` decides the result. Then call
    `scripts/verify --items <file> --since <the executor's reported commit SHA> --repo <worktree> --out <results.json>`.
    This call always happens *after* the executor's own commit, never
    before — reversing that order makes `evidence-capture`'s freshness
@@ -145,13 +156,14 @@ For each task block, in order:
 
    **Exit code 2 from `verify` is not a task FAIL.** It means a usage
    error — almost certainly a malformed items file, i.e. you
-   mis-transcribed the executor's fenced block. Treat this as your own
-   bug: re-read the executor's original final message, re-write the items
-   file, and re-invoke `verify` — no new executor dispatched, and this
-   attempt does **not** count against the Failure routine's two-failure
-   budget. Only exit 0 (PASS) or exit 1 (at least one item FAIL) advances
-   that budget. If exit 2 recurs after that one retry, stop and report
-   **PAUSED**, naming "verify usage error persisted after retry."
+   mis-transcribed this task's checkpoint block's `Done means` lines.
+   Treat this as your own bug: re-read the checkpoint block, re-write the
+   items file, and re-invoke `verify` — no new executor dispatched, and
+   this attempt does **not** count against the Failure routine's
+   two-failure budget. Only exit 0 (PASS) or exit 1 (at least one item
+   FAIL) advances that budget. If exit 2 recurs after that one retry, stop
+   and report **PAUSED**, naming "verify usage error persisted after
+   retry."
 6. **Inspect — explicit no-op for this pass.** Issue #15's rough-in
    inspector isn't built yet. Do not call it, simulate it, or treat this
    as a step to skip past like a broken reference: this is a named,
@@ -253,9 +265,10 @@ transcription bug and re-invoke.
 you decide FIX-vs-RESAMPLE and REPLAN-vs-ESCALATE — judgment calls no
 script could make — while every PASS/FAIL determination, every evidence
 write, and every status flip's actual write to the plan file are script
-outputs. "Nothing signs off on itself" is why the executor supplies checks
-but never results, and why `verify` always runs after, never inside, the
-executor's own turn. "Recommend one action; the human decides. Propose;
-never apply" is the Failure routine's and Cadence's whole posture — every
-REPLAN, ESCALATE, and risk-tagged pause blocks on the human, with no
-auto-continue past any of them.
+outputs. "Nothing signs off on itself" is why the checks `verify` runs
+come from this task's own checkpoint block, transcribed by you, never
+from the executor's self-report, and why `verify` always runs after,
+never inside, the executor's own turn. "Recommend one action; the human
+decides. Propose; never apply" is the Failure routine's and Cadence's
+whole posture — every REPLAN, ESCALATE, and risk-tagged pause blocks on
+the human, with no auto-continue past any of them.

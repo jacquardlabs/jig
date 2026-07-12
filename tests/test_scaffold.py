@@ -15,7 +15,12 @@ Checks the story's acceptance criteria mechanically:
    plan, build, finish, coach) — no skill nested inside another skill's
    directory (see docs/studious/premortems/m1-scaffold-epic.md, risk #2) —
    each with a stub `SKILL.md` carrying valid `name`/`description`
-   frontmatter.
+   frontmatter. `skills/` may also hold known model-invoked skill
+   directories (currently just `task-execution-discipline`, see
+   test_discipline_skill.py for its own acceptance checks); the set-equality
+   guard below covers the full known directory list, not just the
+   user-invoked five, so any *unaccounted-for* extra directory still fails
+   the build.
 3. `scripts/plan-lint` and `scripts/design-lint` exist, are executable, and
    exit 0 when run (a stub, not a working linter — see premortem risk #4).
 """
@@ -28,6 +33,8 @@ import subprocess
 import sys
 import unittest
 from pathlib import Path
+
+from _frontmatter import FRONTMATTER
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 PLUGIN_MANIFEST = REPO_ROOT / ".claude-plugin" / "plugin.json"
@@ -42,8 +49,22 @@ REQUIRED_MANIFEST_KEYS = (
 )
 SEMVER = re.compile(r"^\d+\.\d+\.\d+$")
 PLUGIN_NAME = re.compile(r"^[a-z0-9-]+$")
+
+# The five user-invoked skill stubs this story's tests validate frontmatter
+# and stub-content shape for.
 EXPECTED_SKILLS = ("design", "plan", "build", "finish", "coach")
-FRONTMATTER = re.compile(r"^---\n(.*?)\n---\n", re.DOTALL)
+
+# Known model-invoked skill directories that also legitimately live under
+# top-level skills/ — each has its own dedicated acceptance test module
+# (task-execution-discipline: test_discipline_skill.py) rather than being
+# swept into the user-invoked stub checks below.
+EXPECTED_MODEL_INVOKED_SKILLS = ("task-execution-discipline",)
+
+# The full set of top-level skills/ directories this repo currently knows
+# about. Used only to guard against an *unaccounted-for* extra directory
+# (a real regression) without conflating "unknown extra dir" with "a known
+# model-invoked skill that isn't one of the five user-invoked stubs."
+ALL_KNOWN_SKILL_DIRS = set(EXPECTED_SKILLS) | set(EXPECTED_MODEL_INVOKED_SKILLS)
 
 
 class TestPluginManifest(unittest.TestCase):
@@ -91,10 +112,13 @@ class TestPluginManifest(unittest.TestCase):
 
 class TestSkillsDirectory(unittest.TestCase):
     def test_no_extra_top_level_skill_dirs(self) -> None:
+        # Guards against an unaccounted-for directory under skills/ — not
+        # against the presence of a *known* model-invoked skill alongside
+        # the five user-invoked stubs (see ALL_KNOWN_SKILL_DIRS above).
         skills_dir = REPO_ROOT / "skills"
         self.assertTrue(skills_dir.is_dir())
         actual = {p.name for p in skills_dir.iterdir() if p.is_dir()}
-        self.assertEqual(actual, set(EXPECTED_SKILLS))
+        self.assertEqual(actual, ALL_KNOWN_SKILL_DIRS)
 
     def test_each_skill_has_a_stub_skill_md_with_valid_frontmatter(self) -> None:
         for skill in EXPECTED_SKILLS:

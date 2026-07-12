@@ -1,0 +1,25 @@
+#!/usr/bin/env python3
+"""Stub for jig's design-doc linter.
+
+Not yet implemented. Once jig milestone M2 (`/design`) ships, this checks a
+design doc against DESIGN.md's Formatting conventions: 5-8 sections, each
+tied to a named downstream consumer (Intent, Experience, Contracts,
+Approach, Assumptions, Not doing, Risks — see the section-to-consumer table
+in the ratified handoff, §5.1 step 4).
+
+Exits 0 unconditionally for now, so it's safe to wire into a build/CI step
+ahead of the real implementation (see jig milestone M1 acceptance criteria
+for scaffold-skeleton: an executable stub, not a working linter).
+"""
+from __future__ import annotations
+
+import sys
+
+
+def main() -> int:
+    print("design-lint: stub — no checks implemented yet (see jig milestone M2).")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

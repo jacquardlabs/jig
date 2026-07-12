@@ -37,7 +37,8 @@ source and this table should be updated to point there.
 |---------|-------------------|-----------------|-----------|
 | `/design` verdict | `DESIGNED` \| `NEEDS RESEARCH` \| `REVISED` | handoff §5.1 (future: `skills/design/SKILL.md`) | `/design` output; read by `/plan` and studious's `/gate-design-review` |
 | `/plan` verdict | `PLAN READY` \| `DESIGN GAP` \| `TOO BIG` | handoff §5.2 (future: `skills/plan/SKILL.md`) | `/plan` output; `DESIGN GAP` routes back to `/design` |
-| `/build` task status | `todo` → `in-progress` → `PASS`/`FIX`/`REPLAN`/`ESCALATE` | handoff §5.3 (future: `skills/build/SKILL.md`) | flipped by scripts only, never the model |
+| `/build` task status | `todo` → `in-progress` → `PASS`/`REPLAN`/`ESCALATE` | `skills/build/SKILL.md` | flipped by scripts only, never the model |
+| `/build` failure-routine action | `FIX` \| `RESAMPLE` | `skills/build/SKILL.md` | the Foreman's own per-attempt judgment call after an item FAIL; transient, never written as a task status suffix |
 | `/build` session verdict | `BUILT` \| `PAUSED` \| `ESCALATED` | handoff §5.3 | reported to the coach and the human |
 | inspector verdict | `CLEAR` \| `DEFECT` \| `CONCERN` | handoff §5.3 | `/build`'s failure routine; `CONCERN` forwards to `/gate-audit` |
 | `/finish` verdict | `MERGE` \| `PR` \| `KEEP` \| `DISCARD` | handoff §5.4 | closes out a build branch |

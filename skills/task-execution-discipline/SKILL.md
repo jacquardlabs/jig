@@ -1,6 +1,6 @@
 ---
 name: task-execution-discipline
-description: Use when about to write implementation code for a checkpoint block's cap item, or about to claim a task's Done means is satisfied — before doing either, read this. Holds the TDD-per-capability, YAGNI, and verification-before-completion discipline every fresh /build executor starts from. Model-invoked: not a slash command, never run by name.
+description: Use when about to write implementation code for a checkpoint block's cap item, or about to claim a task's Done means is satisfied — before doing either, read this. Holds the TDD-per-capability, YAGNI, and verification-before-completion discipline every fresh /build executor starts from. Model-invoked — not a slash command, never run by name.
 ---
 
 # Task-execution discipline

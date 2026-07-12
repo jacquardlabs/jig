@@ -30,10 +30,11 @@ import re
 import unittest
 from pathlib import Path
 
+from _frontmatter import FRONTMATTER
+
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SKILL_DIR = REPO_ROOT / "skills" / "task-execution-discipline"
 SKILL_MD = SKILL_DIR / "SKILL.md"
-FRONTMATTER = re.compile(r"^---\n(.*?)\n---\n", re.DOTALL)
 
 # Jig's own checkpoint-block vocabulary (DESIGN.md: Vocabulary, Formatting)
 # the canon must be adapted into, not left as Superpowers' generic terms.
@@ -99,6 +100,26 @@ class TestDisciplineSkillFile(unittest.TestCase):
             description,
             "this skill ships real content; it is not one of the five "
             "STUB placeholder skills",
+        )
+
+    def test_description_is_a_valid_unquoted_yaml_plain_scalar(self) -> None:
+        # A YAML plain (unquoted) scalar cannot contain ": " (colon
+        # followed by a space) mid-string — a strict frontmatter loader
+        # reads that sequence as a nested mapping key and fails to parse
+        # the file at all. Regression guard for gate-audit's Important
+        # finding on this file (m1-scaffold--discipline-skill): quote the
+        # value or rephrase around it, don't reintroduce a bare ": ".
+        desc_match = re.search(
+            r"^description:\s*(.*)$", self.frontmatter, re.MULTILINE
+        )
+        self.assertIsNotNone(desc_match)
+        description = desc_match.group(1)
+        self.assertNotIn(
+            ": ",
+            description,
+            "unquoted description contains ': ' -- a strict YAML "
+            "frontmatter loader will fail to parse this plain scalar; "
+            "quote the value or rephrase to avoid a mid-string colon",
         )
 
     def test_not_documented_as_a_slash_command(self) -> None:

@@ -2,17 +2,21 @@
 
 jig is a Claude Code plugin — its user-facing surface is the set of
 commands/skills it exposes and the vocabulary they emit, not a visual UI.
-**No commands, skills, or `.claude-plugin` manifest exist yet in this repo**
-(confirmed: no `.claude-plugin/`, `skills/`, `commands/`, or `agents/`
-directories — M1, not yet started). Everything below is extracted from the
-project's ratified handoff document, not from running code. Re-run
-`/extract-design-system` once M2–M6 land real implementations.
+**M1 (repo & plugin scaffold, #30) has shipped**: `.claude-plugin/plugin.json`
+and `skills/{design,plan,build,finish,coach,task-execution-discipline}/`
+all exist, each user-invoked skill carrying a stub `SKILL.md` with valid
+frontmatter and an explicit "not yet implemented" description. No skill has
+real behavior behind it yet — `/design`, `/plan`, `/build`, `/finish`, and
+the coach still land in M2–M6. Everything below is still extracted from the
+project's ratified handoff document, not from running code, since the
+stubs emit no vocabulary of their own yet. Re-run `/extract-design-system`
+once M2–M6 land real implementations.
 
 ## Surfaces
 
 | Surface | Framework / tech | Entry point |
 |---------|------------------|-------------|
-| `plugin` | Claude Code plugin (skills + deterministic scripts) | Not yet implemented — planned per the handoff: `skills/design`, `skills/plan`, `skills/build`, `skills/finish`, plus a coach orchestrator (M2–M6) |
+| `plugin` | Claude Code plugin (skills + deterministic scripts) | Scaffolded, not yet implemented — `skills/design`, `skills/plan`, `skills/build`, `skills/finish`, and `skills/coach` exist as stub `SKILL.md` files (M1); real behavior lands M2–M6. `scripts/design-lint` and `scripts/plan-lint` are executable stubs that exit 0 unconditionally. |
 
 ## Semantic palette
 
@@ -94,13 +98,15 @@ source and this table should be updated to point there.
 
 ## Top inconsistencies / risks if left unaddressed
 
-Since nothing is implemented yet, these are design-level risks surfaced by
-this extraction, not code drift:
+Since no skill has real behavior yet, these are design-level risks surfaced
+by this extraction, not code drift:
 
-1. **No real surface exists to extract from** — this entire document is
-   sourced from the handoff text. Re-run `/extract-design-system` once M2-M6
-   ship actual `SKILL.md` files, and point the Vocabulary table's "source of
-   truth" column at them instead of the handoff.
+1. **No behavioral surface exists to extract from yet** — M1's stub
+   `SKILL.md` files exist (see Surfaces above) but emit no vocabulary of
+   their own, so this entire document is still sourced from the handoff
+   text. Re-run `/extract-design-system` once M2-M6 replace the stubs with
+   real behavior, and point the Vocabulary table's "source of truth" column
+   at each `SKILL.md` instead of the handoff.
 2. **`PASS` token collision risk** — jig's task-level `PASS` and studious's
    gate-level `PASS` are different concepts sharing a word; low risk today,
    real risk once both appear in the same PR.

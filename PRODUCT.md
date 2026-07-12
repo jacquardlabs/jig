@@ -82,9 +82,9 @@ issues). This section intentionally doesn't duplicate that inventory.
 
 ## Critical user journeys
 
-jig is pre-implementation (see Current known problems) — these are the
-journeys the ratified design commits to, not yet observable in a running
-product.
+jig's plugin scaffold shipped at M1 (see Current known problems), but no
+skill has real behavior behind it yet — these are the journeys the ratified
+design commits to, not yet observable in a running product.
 
 1. **Full cycle:** `/gate-should-we-build` (studious) → `/design` (batch
    interview → forks → sectioned doc → viva) → `/gate-design-review`
@@ -99,7 +99,8 @@ product.
    for a full persona walk.
 
 **Confidence: medium** — drawn directly from the ratified pipeline overview,
-but unverified against a running implementation, since none exists yet.
+but unverified against a running implementation, since the shipped M1
+scaffold is stubs only (see Current known problems).
 
 ## What we're NOT building
 
@@ -123,9 +124,11 @@ handoff, not inferred.
 
 ## Current known problems
 
-jig itself has no code yet, so there is nothing to scan for TODOs, bugs, or
-regressions — this section would normally report on the codebase, but the
-codebase doesn't exist. What *does* exist: a paper dogfood of `/design` and
+jig's only code so far is the M1 plugin scaffold (#30): stub `SKILL.md`
+files with no real logic, two lint scripts that exit 0 unconditionally, and
+the tests that check the scaffold's own shape — nothing here has behavior
+to regress yet, so there's nothing to scan for TODOs or bugs beyond that.
+What *does* exist as a source of real risk: a paper dogfood of `/design` and
 `/plan` was run against a real dependency (viva issue #109) before any
 plugin code was written, and it surfaced concrete, evidenced risks that
 block or shape upcoming work:

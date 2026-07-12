@@ -1,0 +1,19 @@
+## Result: blocked — REPLAN needed, not implemented
+
+I read `calc.py`, `tests/test_calc.py`, and the Task 1 block in `PLAN.md` before touching anything, per the task-execution-discipline skill. I'm stopping before writing any code or committing.
+
+**The conflict:** `Done means` item 1 is verified by:
+```
+python3 -m unittest tests.test_calc_evenness.CalcEvennessTest.test_is_even -v
+```
+That dotted path only resolves if `tests/test_calc_evenness.py` exists as a module containing `CalcEvennessTest`. But `Not here` states: *"add any new test only to the existing tests/test_calc.py — do not create, rename, or move any test file or test module."*
+
+There is no way to satisfy the stated `Done means` without violating the stated `Not here` — creating `tests/test_calc_evenness.py` is required by one clause and forbidden by the other. This isn't a judgment call I can resolve by picking a side:
+- Writing `is_even`'s test in `tests/test_calc.py` (the only place `Not here` permits) would leave `Done means`'s named command unrunnable — `tests.test_calc_evenness` wouldn't exist, so the exact verification command would fail with `ModuleNotFoundError`, not a test failure.
+- Creating `tests/test_calc_evenness.py` to make that command work directly violates the explicit `Not here` prohibition.
+
+Per Pillar 1 (TDD-per-capability), I can't even start the RED step for this cap item — the test-backed verification the block names can't legally be written. Per Pillar 3, I won't fabricate or paste "hoped-for" evidence for a command that can't validly exist.
+
+**Action taken:** none. No implementation code written, no test file created, no commit made — working tree is clean. This needs to go back for REPLAN: either `Done means` should point at `tests/test_calc.py::CalcTest` (or similar), or `Not here` needs to allow the new module. I can't self-resolve which one is authorial intent, so I'm surfacing the defect rather than guessing.
+
+No commit SHA — nothing was committed.

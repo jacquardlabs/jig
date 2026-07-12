@@ -1,0 +1,13 @@
+{
+  "task": "task-1",
+  "overall": "FAIL",
+  "items": [
+    {
+      "id": 1,
+      "kind": "cap",
+      "tier": "test-backed",
+      "status": "FAIL",
+      "detail": "command: python3 -m unittest tests.test_calc_evenness.CalcEvennessTest.test_is_even -v\nexit code: 1\n--- stdout ---\n\n--- stderr ---\ntest_calc_evenness (unittest.loader._FailedTest.test_calc_evenness) ... ERROR\n\n======================================================================\nERROR: test_calc_evenness (unittest.loader._FailedTest.test_calc_evenness)\n----------------------------------------------------------------------\nImportError: Failed to import test module: test_calc_evenness\nTraceback (most recent call last):\n  File \"/Users/bryan/.local/share/uv/python/cpython-3.13.5-macos-aarch64-none/lib/python3.13/unittest/loader.py\", line 137, in loadTestsFromName\n    module = __import__(module_name)\nModuleNotFoundError: No module named 'tests.test_calc_evenness'\n\n\n----------------------------------------------------------------------\nRan 1 test in 0.000s\n\nFAILED (errors=1)\n"
+    }
+  ]
+}

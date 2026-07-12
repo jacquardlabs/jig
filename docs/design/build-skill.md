@@ -220,8 +220,12 @@ folded into `build-skill`'s foreman state, or a story not yet filed") and
 asked this doc to make a call. The call: **no new file or persistence
 format — but a new script performs the write.** `DESIGN.md`'s Vocabulary
 table already commits `/build` task status to being "flipped by scripts
-only, never the model" (line 40), and `PRODUCT.md`'s "Judgment in the
-model, mechanics in scripts" principle names "status flips" by name as a
+only, never the model" (line 40 — of that line's four-member enum,
+`status-flip` writes three of them as heading suffixes, `PASS`/`REPLAN`/
+`ESCALATE`; `FIX` is a transient failure-routine action, a fresh
+scoped-executor dispatch per Failure routine step 1, never a status-flip
+call or a heading suffix in its own right), and `PRODUCT.md`'s "Judgment in
+the model, mechanics in scripts" principle names "status flips" by name as a
 script concern. An earlier draft of this section had the Foreman edit the
 plan file's own heading directly with its own tools — that draft shipped
 behavior contradicting both of those unchanged, ratified statements, and
@@ -235,12 +239,32 @@ own `results.json` says `FAIL`). This revision closes that gap by adding
   REPLAN|ESCALATE --reason "<text>"` (the failure-routine path, no
   `--results` — there is no script verdict to bind against a Foreman
   judgment call). Locates the single `### Task <label>` heading in `<path>`,
-  refuses (exit 2) if it finds zero or more than one match, or if that
-  heading already carries a terminal-status suffix (idempotency: a status
-  flips exactly once). Appends the suffix, writes the file, and creates the
-  commit itself — a fixed, script-authored message, distinct from the
-  executor's own implementation commit and from any commit the Foreman
-  makes elsewhere.
+  refuses (exit 2) if it finds zero or more than one match. **Idempotency —
+  "a status flips exactly once" — governs `PASS` and `ESCALATE` only.** A
+  heading that already carries either of those two suffixes refuses any
+  further status-flip call outright, since both close the task out for
+  this session (`PASS` advances to the next task; `ESCALATE` ends the
+  session per the Revision loop). `REPLAN` is deliberately not in that set:
+  it is the Failure routine's and Session verdicts' own resumable,
+  PAUSED-not-closed state (Failure routine, step 2, below; Session
+  verdicts, below — "Resumable once the human acts"), so a heading already
+  carrying a `REPLAN` suffix does **not** refuse. status-flip overwrites it
+  in place with whatever the retried attempt actually earns next — a later
+  `PASS`, a repeat `REPLAN` if the human's revision still doesn't hold, or
+  an `ESCALATE` — the same append-and-commit mechanics either way. This is
+  the doc's explicit reconciliation of the two claims that would otherwise
+  collide: "a status flips exactly once" and "`REPLAN` is a resumable state
+  `/build` revisits once the human acts." Without this carve-out, the
+  human's ordinary resume action — revise the checkpoint block by hand,
+  re-invoke `/build` (Failure routine step 2) — would dead-end: the retried
+  task's own eventual `PASS` would hit the pre-existing `REPLAN` suffix,
+  status-flip would refuse (exit 2), the Foreman would treat that as a
+  usage error per Step 2.4's policy, retry once, hit the same refusal, and
+  pause the session with a misleading "status-flip usage error persisted
+  after retry" — for a task that in fact passed. Appends the suffix, writes
+  the file, and creates the commit itself — a fixed, script-authored
+  message, distinct from the executor's own implementation commit and from
+  any commit the Foreman makes elsewhere.
 - **The PASS path is where the integrity check lives, by construction, not
   as a bolted-on extra check.** Given `--results`, the script reads that
   file's own `overall` field and derives the token itself (`PASS` iff
@@ -258,8 +282,10 @@ own `results.json` says `FAIL`). This revision closes that gap by adding
   no script could make that call. What moves to the script here is only
   the *mechanical write*: once the Foreman has decided REPLAN or ESCALATE,
   it hands that decided token to `status-flip`, which performs the same
-  heading-edit-and-commit mechanics as the PASS path. The model still
-  never edits the plan file's bytes or runs `git commit` on it directly.
+  heading-edit-and-commit mechanics as the PASS path — subject to the
+  REPLAN-is-overwritable carve-out above (`ESCALATE`, like `PASS`, still
+  flips exactly once; only `REPLAN` is resumable). The model still never
+  edits the plan file's bytes or runs `git commit` on it directly.
 - The plan file remains the single source of truth for a task's status —
   unchanged from the original call — and still needs no new format, no new
   ledger, and stays git-diffable in the same history `/gate-audit` already
@@ -270,10 +296,12 @@ This is deliberately narrower than "a plan the loop can amend under its own
 failure pressure," which `PRODUCT.md`'s "What we're NOT building" rules out.
 Nothing — not the Foreman, not `status-flip` — ever rewrites a checkpoint
 block's `Do`/`Not here`/`Done means` content; the only thing `status-flip`
-ever writes is a terminal-status suffix on a task's own heading, driven by
-either `verify`'s own `results.json` or the Foreman's already-made REPLAN/
-ESCALATE diagnosis. Actually revising a block's content stays a `REPLAN`
-pause for the human, never something the loop does to itself.
+ever writes is a status suffix on a task's own heading — terminal
+(flips-exactly-once) for `PASS`/`ESCALATE`, resumable and overwritable for
+`REPLAN` (see Interface, above) — driven by either `verify`'s own
+`results.json` or the Foreman's already-made REPLAN/ESCALATE diagnosis.
+Actually revising a block's content stays a `REPLAN` pause for the human,
+never something the loop does to itself.
 
 ### Failure routine (issue #14, step 3)
 
@@ -305,7 +333,11 @@ failure lands on the same item as the first").
      under-specified (a `Done means` that can't actually be met as written,
      a `Rests on` that didn't hold). Task status becomes `REPLAN`; the
      Foreman pauses the session for the human to revise the block (by
-     hand, since `/plan` doesn't exist) before `/build` can resume it.
+     hand, since `/plan` doesn't exist) before `/build` can resume it. This
+     is the one status-flip suffix that isn't terminal: `status-flip`
+     overwrites a `REPLAN` suffix on this task's own resume, rather than
+     refusing on it — see "Status-flip persistence"'s Interface bullet for
+     why the write-once idempotency rule carves this status out.
    - **ESCALATE** — something deeper than this task: a contract mismatch
      with an earlier task, a missing dependency, a design assumption that
      doesn't hold in the real codebase. Task status becomes `ESCALATE`; per

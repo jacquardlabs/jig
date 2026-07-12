@@ -1,0 +1,206 @@
+"""Regression tests for skills/build/SKILL.md (issue #14, story build-skill).
+
+Standard library only, matching test_scaffold.py's convention. Run with:
+
+    uv run --no-project python3 -m unittest discover -s tests -v
+
+Checks this story's acceptance criteria mechanically, by inspecting the
+prose `/build`'s Foreman session actually reads (the same approach
+test_discipline_skill.py already takes for its own sibling skill):
+
+1. `skills/build/SKILL.md` has valid `name`/`description` frontmatter,
+   `name` matching the directory, and no longer reads as the M1 stub.
+2. The dispatch-prompt instructions name exactly the two things an executor
+   receives (the task's checkpoint block verbatim + the
+   task-execution-discipline trigger) and explicitly rule out the design
+   doc and other tasks' history -- the acceptance criteria's central claim
+   and the epic pre-mortem's risk #1/#2.
+3. The body carries jig's own /build-level vocabulary (`PASS`/`FIX`/
+   `REPLAN`/`ESCALATE`, `BUILT`/`PAUSED`/`ESCALATED`, `LOW`/`REPLAN-RISK`/
+   `ESCALATE-RISK`), derived from DESIGN.md at test time (see
+   `_vocabulary.py` / `test_vocabulary_derivation.py`), not hand-copied.
+4. The Failure routine's two-step shape (FIX/RESAMPLE on a first FAIL, one
+   flake-ruling-out re-verify then REPLAN/ESCALATE on a genuine second FAIL
+   on the *same* item) and "no timeout auto-continue" are all named.
+5. `verify` is called only after the executor's own commit, keyed to that
+   commit's own SHA (not the branch tip) -- premortem risk #4.
+6. `status-flip`'s PASS path is described deriving its token from
+   `results.json` alone, never from a Foreman-supplied status string --
+   premortem risk #2's mis-transcription guard.
+7. The rough-in inspector is named as an explicit no-op stub pointing at
+   issue #15 -- premortem risk #4 -- not silently skipped or simulated.
+8. `PAUSED` is never described as reported bare -- every cause names its
+   own resume action -- premortem risk #6.
+9. No `SKILL.md` is nested deeper than the directory's top level (regression
+   guard for the same failure mode test_scaffold.py guards against).
+"""
+from __future__ import annotations
+
+import re
+import unittest
+from pathlib import Path
+
+from _frontmatter import FRONTMATTER
+from _vocabulary import derive_build_vocabulary
+
+REPO_ROOT = Path(__file__).resolve().parent.parent
+SKILL_DIR = REPO_ROOT / "skills" / "build"
+SKILL_MD = SKILL_DIR / "SKILL.md"
+DESIGN_MD = REPO_ROOT / "DESIGN.md"
+
+BUILD_VOCABULARY = derive_build_vocabulary(DESIGN_MD.read_text(encoding="utf-8"))
+
+
+class TestBuildSkillFile(unittest.TestCase):
+    def setUp(self) -> None:
+        self.assertTrue(SKILL_MD.is_file(), f"{SKILL_MD} does not exist")
+        self.text = SKILL_MD.read_text(encoding="utf-8")
+        match = FRONTMATTER.match(self.text)
+        self.assertIsNotNone(match, f"{SKILL_MD} has no --- frontmatter block")
+        self.frontmatter = match.group(1)
+        self.body = self.text[match.end() :]
+
+    def test_name_matches_directory(self) -> None:
+        name_match = re.search(r"^name:\s*(\S+)", self.frontmatter, re.MULTILINE)
+        self.assertIsNotNone(name_match, f"{SKILL_MD} missing name: field")
+        self.assertEqual(name_match.group(1), "build")
+
+    def test_description_is_present_and_no_longer_a_stub(self) -> None:
+        desc_match = re.search(r"^description:\s*(.*)$", self.frontmatter, re.MULTILINE)
+        self.assertIsNotNone(desc_match, f"{SKILL_MD} missing description: field")
+        description = desc_match.group(1)
+        self.assertTrue(description.strip())
+        self.assertNotIn(
+            "STUB",
+            description,
+            "build has real orchestration content as of story build-skill; "
+            "it is no longer one of the STUB placeholder skills",
+        )
+        self.assertNotIn("Do not invoke for actual build work yet", self.body)
+
+    def test_description_is_a_valid_unquoted_yaml_plain_scalar(self) -> None:
+        desc_match = re.search(r"^description:\s*(.*)$", self.frontmatter, re.MULTILINE)
+        self.assertIsNotNone(desc_match)
+        description = desc_match.group(1)
+        self.assertNotIn(
+            ": ",
+            description,
+            "unquoted description contains ': ' -- a strict YAML frontmatter "
+            "loader will fail to parse this plain scalar",
+        )
+        self.assertNotRegex(
+            description,
+            r"\s#",
+            "unquoted description contains whitespace followed by '#' -- a "
+            "strict YAML loader reads this as a comment and silently "
+            "truncates the rest of the value",
+        )
+
+    def test_no_nested_skill_md(self) -> None:
+        nested = list(SKILL_DIR.rglob("SKILL.md"))
+        self.assertEqual(nested, [SKILL_MD], f"{SKILL_DIR} contains nested SKILL.md files: {nested}")
+
+
+class TestBuildVocabularyDerivation(unittest.TestCase):
+    def test_derived_vocabulary_is_non_empty(self) -> None:
+        # Guards against a parsing regression turning the vocabulary check
+        # below into a vacuous no-op.
+        self.assertGreaterEqual(
+            len(BUILD_VOCABULARY),
+            8,
+            f"derived BUILD_VOCABULARY looks too short ({BUILD_VOCABULARY!r}) -- "
+            "check DESIGN.md's Vocabulary table still matches _vocabulary.py's "
+            "parsing assumptions",
+        )
+
+
+def _normalize_ws(text: str) -> str:
+    """Collapse whitespace runs (including line-wrap newlines) to a single
+    space, so a multi-word phrase check doesn't break on where prose
+    happens to be hand-wrapped."""
+    return re.sub(r"\s+", " ", text)
+
+
+class TestBuildSkillBody(unittest.TestCase):
+    def setUp(self) -> None:
+        self.body = SKILL_MD.read_text(encoding="utf-8")
+        self.flat_body = _normalize_ws(self.body)
+
+    def assertPhraseIn(self, phrase: str) -> None:
+        self.assertIn(_normalize_ws(phrase), self.flat_body, f"phrase not found (whitespace-normalized): {phrase!r}")
+
+    def test_body_uses_build_level_vocabulary(self) -> None:
+        missing = [term for term in BUILD_VOCABULARY if term not in self.body]
+        self.assertEqual(missing, [], f"{SKILL_MD} body is missing /build vocabulary terms: {missing}")
+
+    def test_names_the_three_roles(self) -> None:
+        for role in ("Foreman", "Executor", "Scripts"):
+            with self.subTest(role=role):
+                self.assertIn(role, self.body)
+
+    def test_names_all_four_scripts(self) -> None:
+        for script in ("worktree-setup", "verify", "evidence-capture", "status-flip"):
+            with self.subTest(script=script):
+                self.assertIn(script, self.body)
+
+    def test_dispatch_prompt_is_scoped_to_task_block_plus_discipline_trigger(self) -> None:
+        # The acceptance criteria's central claim: exactly the task block +
+        # Read-first contents + task-execution-discipline -- not the design
+        # doc, not other tasks' history.
+        self.assertIn("task-execution-discipline", self.body)
+        self.assertIn("design doc", self.body.lower())
+        self.assertIn("other task", self.body.lower())
+        self.assertPhraseIn("Nothing else goes into the dispatch prompt")
+
+    def test_failure_routine_names_fix_and_resample(self) -> None:
+        for token in ("FIX", "RESAMPLE"):
+            with self.subTest(token=token):
+                self.assertIn(token, self.body)
+
+    def test_failure_routine_rules_out_a_flake_before_genuine_second_failure(self) -> None:
+        self.assertIn("flake", self.body.lower())
+        self.assertPhraseIn("same, already-produced artifacts")
+        self.assertPhraseIn("no new executor dispatched")
+
+    def test_no_timeout_auto_continue_is_named(self) -> None:
+        self.assertIn("no timeout auto-continue", self.body.lower())
+
+    def test_verify_ordered_strictly_after_executor_commit(self) -> None:
+        self.assertPhraseIn("always happens *after* the executor's own commit, never")
+        self.assertPhraseIn("--since <the executor's reported commit SHA>")
+
+    def test_verify_exit_2_is_not_a_task_fail(self) -> None:
+        self.assertPhraseIn("Exit code 2 from `verify` is not a task FAIL")
+        self.assertPhraseIn("does **not** count against the Failure routine's two-failure budget")
+
+    def test_status_flip_pass_path_derives_token_from_results_only(self) -> None:
+        self.assertPhraseIn("`status-flip` derives the `PASS` token itself from")
+        self.assertPhraseIn("you never hand it a status string on this path")
+
+    def test_inspector_is_an_explicit_no_op_stub_pointing_at_its_issue(self) -> None:
+        self.assertIn("no-op", self.body.lower())
+        self.assertIn("issue #15", self.body)
+        self.assertPhraseIn("Do not call it, simulate it")
+
+    def test_paused_is_never_reported_bare(self) -> None:
+        self.assertPhraseIn("Never report `PAUSED` bare")
+        self.assertPhraseIn("four distinct causes")
+
+    def test_replan_is_overwritable_not_terminal(self) -> None:
+        self.assertPhraseIn("overwrites a prior `REPLAN` suffix")
+        self.assertPhraseIn("one status that isn't terminal")
+
+    def test_standalone_capable_degradation_is_named(self) -> None:
+        self.assertPhraseIn("If studious is installed")
+        self.assertPhraseIn("ready for review directly")
+
+    def test_body_names_all_checkpoint_block_fields(self) -> None:
+        for field in ("Why now", "Read first", "Rests on", "Do", "Not here", "Done means", "Evidence"):
+            with self.subTest(field=field):
+                self.assertIn(field, self.body)
+
+
+if __name__ == "__main__":
+    import sys
+
+    sys.exit(unittest.main())

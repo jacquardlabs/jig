@@ -128,6 +128,14 @@ For each task block, in order:
    Foreman-side procedural fact (step 2.3 already asserts the executor
    commits its own change), not foreign context about the design doc,
    `PLAN.md`, or another task.
+
+   **Capture this attempt's dispatch timestamp** — the current UTC time,
+   ISO-8601 (e.g. `date -u +%Y-%m-%dT%H:%M:%SZ`), noted the instant before
+   you launch the subagent. This is step 2.5's `--since` floor for any
+   `probe`-tier item in this task, never the executor's own commit SHA
+   (see step 2.5 for why). Re-capture a fresh one for every dispatch,
+   including a Failure-routine retry (see below) — each attempt gets its
+   own floor, not the task's first attempt's.
 3. **Execute.** The executor works under `task-execution-discipline`'s
    three pillars (TDD-per-capability, YAGNI bounded by `Not here`,
    verification-before-completion) and commits its own change as its last
@@ -148,11 +156,18 @@ For each task block, in order:
    and check; you are transcribing that, never inventing a check the
    block didn't name. That JSON names *what to check*, never *whether it
    passed*; only `verify` decides the result. Then call
-   `scripts/verify --items <file> --since <the executor's reported commit SHA> --repo <worktree> --out <results.json>`.
-   This call always happens *after* the executor's own commit, never
-   before — reversing that order makes `evidence-capture`'s freshness
-   check vacuous. `verify`'s per-item PASS/FAIL report is what you react
-   to next, not the executor's claim.
+   `scripts/verify --items <file> --since <this attempt's dispatch timestamp from step 2.2> --repo <worktree> --out <results.json>`.
+   **Never the executor's own reported commit SHA** — a `probe` artifact
+   is written to disk *before* it is committed, so its mtime is always at
+   or before that very commit's own timestamp; using the commit as the
+   floor makes every `probe` item structurally unpassable (issue #44).
+   The dispatch timestamp, captured before the executor ever started,
+   predates anything it writes while still catching an artifact staled
+   forward from an earlier attempt at this same task. This call always
+   happens *after* the executor's own commit, never before — reversing
+   that order makes `evidence-capture`'s freshness check vacuous.
+   `verify`'s per-item PASS/FAIL report is what you react to next, not
+   the executor's claim.
 
    **Exit code 2 from `verify` is not a task FAIL.** It means a usage
    error — almost certainly a malformed items file, i.e. you
@@ -202,7 +217,10 @@ distinguished from a new failure on a *different* one.
      as a wrong approach (wrong file touched, task misunderstood, a
      `Not here` boundary crossed).
 
-   Either way, re-run step 2.5 (`verify`) against the new attempt.
+   Either way, re-run step 2.5 (`verify`) against the new attempt. Both
+   FIX and RESAMPLE are dispatches — capture a fresh dispatch timestamp
+   per step 2.2 for each one; step 2.5's `--since` on the re-run is this
+   new attempt's own timestamp, never the first attempt's.
 2. **Second FAIL on the *same* item ID.** Before treating this as genuine,
    re-run `scripts/verify` exactly once more against the same,
    already-produced artifacts — no new executor dispatched — to rule out

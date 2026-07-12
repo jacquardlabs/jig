@@ -23,12 +23,15 @@ Run with:
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 import tempfile
 import unittest
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+
+from _tempgit import commit_all, init_repo
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SCRIPT = REPO_ROOT / "scripts" / "verify"
@@ -131,6 +134,130 @@ class TestVerifyProbeTier(unittest.TestCase):
             self.assertEqual(result.returncode, 2)
             self.assertIn("--since", result.stderr)
             self.assertNotIn("PASS", result.stdout)
+
+
+class TestVerifyProbeFreshnessFloor(unittest.TestCase):
+    """Regression coverage for issue #44: 'Probe-tier verify is structurally
+    unpassable: artifact mtime always predates the executor's commit'.
+
+    A probe artifact is always written to disk *before* it's committed, so
+    its mtime is always at or before that very commit's own timestamp.
+    `--since <the artifact-adding commit>` is therefore never a workable
+    freshness floor — `SKILL.md` step 2.5 now uses the dispatch timestamp
+    (or, equivalently, any revision that predates the artifact's own
+    commit, e.g. the pre-task baseline) instead. These tests exercise a
+    real git repo/commit, not just synthetic ISO timestamps, so they catch
+    a regression in the actual mtime-vs-commit-timestamp relationship, not
+    only in `resolve_since`'s parsing.
+    """
+
+    def test_probe_artifact_fails_against_its_own_commit_sha(self) -> None:
+        """Documents the exact bug: the executor's own final commit SHA is
+        never an acceptable --since floor for the artifact it just added."""
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp) / "repo"
+            repo.mkdir()
+            init_repo(repo)
+
+            artifact = repo / "probe-evidence.txt"
+            artifact.write_text("no orphaned process found\n", encoding="utf-8")
+            artifact_mtime = datetime.now(timezone.utc).timestamp()
+            os.utime(artifact, (artifact_mtime, artifact_mtime))
+
+            # The commit always lands after the write in the real /build
+            # flow (executor writes, then commits as its last act). Forced
+            # here via GIT_*_DATE so the test doesn't depend on real
+            # elapsed time landing on the wrong side of a second boundary.
+            commit_epoch = int(artifact_mtime) + 5
+            env = {
+                **os.environ,
+                "GIT_AUTHOR_DATE": f"@{commit_epoch} +0000",
+                "GIT_COMMITTER_DATE": f"@{commit_epoch} +0000",
+            }
+            subprocess.run(["git", "add", "-A"], cwd=repo, capture_output=True, check=False)
+            subprocess.run(
+                ["git", "commit", "-q", "-m", "task work"], cwd=repo, env=env, capture_output=True, check=False
+            )
+            executor_sha = subprocess.run(
+                ["git", "rev-parse", "HEAD"], cwd=repo, capture_output=True, text=True, check=False
+            ).stdout.strip()
+
+            items_path = write_items(
+                Path(tmp),
+                [
+                    {
+                        "id": 1,
+                        "kind": "cap",
+                        "tier": "probe",
+                        "artifact": str(artifact),
+                        "pattern": "no orphaned process",
+                    }
+                ],
+            )
+            result = run_script(["--items", str(items_path), "--since", executor_sha, "--repo", str(repo)])
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("stale", result.stdout)
+
+    def test_probe_artifact_passes_against_dispatch_timestamp_floor(self) -> None:
+        """The corrected floor: a timestamp captured before dispatch (this
+        attempt's own task-start time, SKILL.md step 2.2) predates
+        anything the executor writes, so a freshly-written, freshly
+        committed probe artifact passes."""
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp) / "repo"
+            repo.mkdir()
+            init_repo(repo)
+
+            dispatch_time = datetime.now(timezone.utc)
+
+            artifact = repo / "probe-evidence.txt"
+            artifact.write_text("no orphaned process found\n", encoding="utf-8")
+            commit_all(repo, "task work")
+
+            items_path = write_items(
+                Path(tmp),
+                [
+                    {
+                        "id": 1,
+                        "kind": "cap",
+                        "tier": "probe",
+                        "artifact": str(artifact),
+                        "pattern": "no orphaned process",
+                    }
+                ],
+            )
+            result = run_script(
+                ["--items", str(items_path), "--since", dispatch_time.isoformat(), "--repo", str(repo)]
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+    def test_probe_artifact_passes_against_baseline_commit_floor(self) -> None:
+        """The other acceptable floor issue #44 names: the pre-task
+        baseline commit (captured once, before any task's executor ever
+        ran) also predates the artifact and passes."""
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp) / "repo"
+            repo.mkdir()
+            baseline_sha = init_repo(repo)
+
+            artifact = repo / "probe-evidence.txt"
+            artifact.write_text("no orphaned process found\n", encoding="utf-8")
+            commit_all(repo, "task work")
+
+            items_path = write_items(
+                Path(tmp),
+                [
+                    {
+                        "id": 1,
+                        "kind": "cap",
+                        "tier": "probe",
+                        "artifact": str(artifact),
+                        "pattern": "no orphaned process",
+                    }
+                ],
+            )
+            result = run_script(["--items", str(items_path), "--since", baseline_sha, "--repo", str(repo)])
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
 
 class TestVerifyFailsClosed(unittest.TestCase):

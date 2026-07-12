@@ -1,0 +1,25 @@
+#!/usr/bin/env python3
+"""Stub for jig's PLAN.md linter.
+
+Not yet implemented. Once jig milestone M3 (`/plan`) ships, this checks
+PLAN.md's checkpoint-block structure against DESIGN.md's Formatting
+conventions: every task has >=1 cap item, >=1 hold item, <=5 items total,
+and each item names a verification tier (script | test-backed | probe; no
+"judgment" tier permitted).
+
+Exits 0 unconditionally for now, so it's safe to wire into a build/CI step
+ahead of the real implementation (see jig milestone M1 acceptance criteria
+for scaffold-skeleton: an executable stub, not a working linter).
+"""
+from __future__ import annotations
+
+import sys
+
+
+def main() -> int:
+    print("plan-lint: stub — no checks implemented yet (see jig milestone M3).")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

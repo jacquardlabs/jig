@@ -22,8 +22,10 @@ test_discipline_skill.py already takes for its own sibling skill):
 4. The Failure routine's two-step shape (FIX/RESAMPLE on a first FAIL, one
    flake-ruling-out re-verify then REPLAN/ESCALATE on a genuine second FAIL
    on the *same* item) and "no timeout auto-continue" are all named.
-5. `verify` is called only after the executor's own commit, keyed to that
-   commit's own SHA (not the branch tip) -- premortem risk #4.
+5. `verify` is called only after the executor's own commit -- premortem
+   risk #4 -- and its `--since` freshness floor is a fresh per-dispatch
+   timestamp, never the executor's own commit SHA (that would make a
+   `probe` item's own artifact always predate it -- issue #44).
 6. `status-flip`'s PASS path is described deriving its token from
    `results.json` alone, never from a Foreman-supplied status string --
    premortem risk #2's mis-transcription guard.
@@ -195,7 +197,20 @@ class TestBuildSkillBody(unittest.TestCase):
 
     def test_verify_ordered_strictly_after_executor_commit(self) -> None:
         self.assertPhraseIn("always happens *after* the executor's own commit, never")
-        self.assertPhraseIn("--since <the executor's reported commit SHA>")
+        self.assertPhraseIn("--since <this attempt's dispatch timestamp from step 2.2>")
+
+    def test_verify_since_floor_is_not_the_executors_own_commit_sha(self) -> None:
+        # Issue #44: a probe artifact is written to disk before it's
+        # committed, so its mtime is always at or before that very
+        # commit's own timestamp -- using the executor's own commit SHA as
+        # --since makes every probe item structurally unpassable. SKILL.md
+        # must no longer instruct that value, and must capture a fresh
+        # per-dispatch timestamp instead (including on Failure-routine
+        # retries).
+        self.assertNotIn("--since <the executor's reported commit SHA>", self.body)
+        self.assertPhraseIn("Capture this attempt's dispatch timestamp")
+        self.assertPhraseIn("Never the executor's own reported commit SHA")
+        self.assertPhraseIn("capture a fresh dispatch timestamp per step 2.2 for each one")
 
     def test_verify_exit_2_is_not_a_task_fail(self) -> None:
         self.assertPhraseIn("Exit code 2 from `verify` is not a task FAIL")
@@ -212,6 +227,53 @@ class TestBuildSkillBody(unittest.TestCase):
     def test_status_flip_pass_path_derives_token_from_results_only(self) -> None:
         self.assertPhraseIn("`status-flip` derives the `PASS` token itself from")
         self.assertPhraseIn("you never hand it a status string on this path")
+
+    def test_step_5_instructs_scratch_path_for_items_and_results(self) -> None:
+        # Issue #45: the Foreman's own transient items.json/results.json
+        # must never land inside the worktree, or evidence-capture's
+        # clean-tree check refuses on task 1 -- before the task can ever
+        # complete, not just before a later one.
+        self.assertPhraseIn(
+            "Write this items file, and `verify`'s `--out results.json` "
+            "below, to a scratch path outside the worktree"
+        )
+        self.assertPhraseIn("never a path under `<worktree>` itself")
+        self.assertPhraseIn("issue #45")
+
+    def test_step_7_evidence_capture_points_at_the_scratch_path_results(self) -> None:
+        # The evidence-capture call in step 7 must reuse step 5's
+        # scratch-path results.json directly, never a copy staged inside
+        # the worktree first -- the same seam issue #45 names.
+        self.assertPhraseIn(
+            "pointing `--artifact` straight at each scratch-path file, never "
+            "at a path staged inside `<worktree>` first"
+        )
+        self.assertPhraseIn(
+            "`evidence-capture` reads an artifact from wherever `--artifact` names "
+            "it and copies it into the worktree's own evidence directory itself"
+        )
+
+    def test_step_7_probe_artifacts_get_a_fresh_copy_before_evidence_capture(self) -> None:
+        # m4-verify-fixes epic-finale audit, code-auditor finding 1: a probe
+        # item's own artifact is committed by the executor inside the
+        # worktree, so its mtime is always at or before that commit's own
+        # timestamp -- the same structural fact issue #44 diagnosed for
+        # verify's --since floor, this time tripping evidence-capture's own
+        # stale-artifact refusal. Step 7 must instruct a fresh, non-preserving
+        # copy before handing such an artifact to --artifact.
+        self.assertPhraseIn(
+            "copy each such artifact into the scratch dir with a plain, "
+            "non-preserving copy"
+        )
+        self.assertPhraseIn(
+            "point `--artifact` at the copy, never at the in-worktree original"
+        )
+
+    def test_step_7_status_flip_reuses_the_same_scratch_path_results(self) -> None:
+        self.assertPhraseIn(
+            "the same scratch-path file from step 5 — `status-flip` only "
+            "reads it, never requires it to live in the worktree either"
+        )
 
     def test_inspector_is_an_explicit_no_op_stub_pointing_at_its_issue(self) -> None:
         self.assertIn("no-op", self.body.lower())

@@ -14,6 +14,12 @@ mechanically:
    (same premortem doc, risk #1's second defense).
 4. Re-running against an existing evidence directory refuses without
    `--force`.
+5. A `probe` item's own artifact — committed by the executor in the same
+   commit that produced it, so its mtime is always at or before that
+   commit's timestamp — trips the same stale-artifact refusal as #3 when
+   pointed at directly; a plain, non-preserving copy into the scratch dir
+   (`SKILL.md` step 7, issue #44's finale-audit follow-up) clears it
+   (m4-verify-fixes epic finale audit, code-auditor finding 1).
 
 Run with:
 
@@ -23,6 +29,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -139,6 +146,89 @@ class TestEvidenceCaptureFreshnessRefusals(unittest.TestCase):
             self.assertEqual(result.returncode, 1)
             self.assertIn("stale", result.stderr)
             self.assertIn(str(artifact), result.stderr)
+
+
+class TestEvidenceCaptureProbeArtifactFreshness(unittest.TestCase):
+    """Regression coverage for the m4-verify-fixes epic-finale audit's
+    code-auditor finding 1 (issue #44's own follow-up): a `probe` item's
+    artifact is written to disk *and committed* by the executor inside the
+    worktree, so its mtime is always at or before that commit's own
+    timestamp — the identical structural fact issue #44 diagnosed for
+    `verify`'s `--since` floor, this time tripping `evidence-capture`'s own
+    stale-artifact refusal. `SKILL.md` step 7 now has the Foreman copy such
+    an artifact into the scratch dir with a plain, non-preserving copy
+    before calling `evidence-capture` — these tests exercise a real git
+    repo/commit to pin down both halves empirically: the direct-pointer
+    case still refuses (the trap is real), and the copy-first workaround
+    clears it (the fix actually works), matching
+    `TestVerifyProbeFreshnessFloor`'s pattern in `test_verify.py`.
+    """
+
+    def _repo_with_committed_probe_artifact(self, tmp: Path) -> tuple[Path, Path]:
+        repo = Path(tmp) / "repo"
+        repo.mkdir()
+        init_repo(repo)
+
+        artifact = repo / "probe-evidence.txt"
+        artifact.write_text("no orphaned process found\n", encoding="utf-8")
+        # Backdate the artifact's mtime a few seconds before the (real-time)
+        # commit below — mirrors the real /build ordering (executor writes,
+        # then commits moments later) without forcing GIT_*_DATE into the
+        # future, which would trip evidence-capture's own clock-skew guard
+        # (`now < commit_epoch`) before ever reaching the staleness check.
+        written_at = time.time() - 5
+        os.utime(artifact, (written_at, written_at))
+
+        subprocess.run(["git", "add", "-A"], cwd=repo, capture_output=True, check=False)
+        subprocess.run(["git", "commit", "-q", "-m", "task work"], cwd=repo, capture_output=True, check=False)
+        return repo, artifact
+
+    def test_refuses_a_probe_artifact_pointed_at_directly_inside_the_worktree(self) -> None:
+        """Documents the trap: handing --artifact the in-worktree,
+        already-committed probe artifact directly always refuses."""
+        with tempfile.TemporaryDirectory() as tmp:
+            repo, artifact = self._repo_with_committed_probe_artifact(tmp)
+
+            result = run_script(
+                [
+                    "--task",
+                    "task-1",
+                    "--repo",
+                    str(repo),
+                    "--evidence-root",
+                    str(Path(tmp) / "evidence"),
+                    "--artifact",
+                    f"probe:evidence={artifact}",
+                ]
+            )
+
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("stale", result.stderr)
+
+    def test_accepts_a_plain_non_preserving_copy_of_the_same_artifact(self) -> None:
+        """The SKILL.md-prescribed fix: a plain copy (fresh mtime, not
+        preserved from the original) clears the same gate."""
+        with tempfile.TemporaryDirectory() as tmp:
+            repo, artifact = self._repo_with_committed_probe_artifact(tmp)
+
+            scratch_copy = Path(tmp) / "scratch" / "probe-evidence.txt"
+            scratch_copy.parent.mkdir(parents=True)
+            shutil.copyfile(artifact, scratch_copy)  # content only — mtime is copy-time, not preserved
+
+            result = run_script(
+                [
+                    "--task",
+                    "task-1",
+                    "--repo",
+                    str(repo),
+                    "--evidence-root",
+                    str(Path(tmp) / "evidence"),
+                    "--artifact",
+                    f"probe:evidence={scratch_copy}",
+                ]
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
 
 
 class TestEvidenceCaptureCollision(unittest.TestCase):

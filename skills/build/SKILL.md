@@ -128,6 +128,14 @@ For each task block, in order:
    Foreman-side procedural fact (step 2.3 already asserts the executor
    commits its own change), not foreign context about the design doc,
    `PLAN.md`, or another task.
+
+   **Capture this attempt's dispatch timestamp** — the current UTC time,
+   ISO-8601 (e.g. `date -u +%Y-%m-%dT%H:%M:%SZ`), noted the instant before
+   you launch the subagent. This is step 2.5's `--since` floor for any
+   `probe`-tier item in this task, never the executor's own commit SHA
+   (see step 2.5 for why). Re-capture a fresh one for every dispatch,
+   including a Failure-routine retry (see below) — each attempt gets its
+   own floor, not the task's first attempt's.
 3. **Execute.** The executor works under `task-execution-discipline`'s
    three pillars (TDD-per-capability, YAGNI bounded by `Not here`,
    verification-before-completion) and commits its own change as its last
@@ -147,12 +155,28 @@ For each task block, in order:
    block's own `Done means` prose already states each item's kind, tier,
    and check; you are transcribing that, never inventing a check the
    block didn't name. That JSON names *what to check*, never *whether it
-   passed*; only `verify` decides the result. Then call
-   `scripts/verify --items <file> --since <the executor's reported commit SHA> --repo <worktree> --out <results.json>`.
-   This call always happens *after* the executor's own commit, never
-   before — reversing that order makes `evidence-capture`'s freshness
-   check vacuous. `verify`'s per-item PASS/FAIL report is what you react
-   to next, not the executor's claim.
+   passed*; only `verify` decides the result.
+
+   **Write this items file, and `verify`'s `--out results.json` below, to a
+   scratch path outside the worktree** — a fresh directory under the
+   system temp dir (e.g. `mktemp -d`), or wherever this session already
+   keeps working files — never a path under `<worktree>` itself. These are
+   the Foreman's own transient working notes, not the executor's committed
+   change, and `evidence-capture` (step 7) refuses to run against a dirty
+   tree: the moment either file lands inside the worktree it shows up as
+   untracked in `git status --porcelain`, and the very next call in this
+   same task — not just a later one — refuses (issue #45). Then call
+   `scripts/verify --items <scratch-path>/items.json --since <this attempt's dispatch timestamp from step 2.2> --repo <worktree> --out <scratch-path>/results.json`.
+   **Never the executor's own reported commit SHA** — a `probe` artifact
+   is written to disk *before* it is committed, so its mtime is always at
+   or before that very commit's own timestamp; using the commit as the
+   floor makes every `probe` item structurally unpassable (issue #44). The
+   dispatch timestamp, captured before the executor ever started, predates
+   anything it writes while still catching an artifact staled forward from
+   an earlier attempt at this same task. This call always happens *after*
+   the executor's own commit, never before — reversing that order makes
+   `evidence-capture`'s freshness check vacuous. `verify`'s per-item
+   PASS/FAIL report is what you react to next, not the executor's claim.
 
    **Exit code 2 from `verify` is not a task FAIL.** It means a usage
    error — almost certainly a malformed items file, i.e. you
@@ -169,9 +193,35 @@ For each task block, in order:
    as a step to skip past like a broken reference: this is a named,
    deliberate pass-through straight from step 5 to step 7. (See issue #15.)
 7. **On overall PASS:**
-   - Call `scripts/evidence-capture --task <id> --repo <worktree> --artifact verify:results=<results.json> [...]`
-     for `verify`'s output and any other artifacts the task's `probe` items
-     produced.
+   - `verify`'s own output (`results.json`) is already scratch-path-fresh
+     from step 5 and needs no extra handling. Any *other* artifact a
+     `probe` item names is a different case: it's a file the executor
+     wrote *and committed* inside `<worktree>` as part of its own commit,
+     so its mtime is always at or before that commit's own timestamp — the
+     same structural fact issue #44 diagnosed for `verify`'s `--since`
+     floor, this time tripping `evidence-capture`'s own stale-artifact
+     check (it refuses anything whose mtime predates the last commit).
+     Before calling `evidence-capture`, **copy each such artifact into the
+     scratch dir with a plain, non-preserving copy** (e.g. `cp
+     <worktree>/<artifact> <scratch-path>/<label>` — never `cp -p`, and
+     never a metadata-preserving copy if scripting this) and point
+     `--artifact` at the copy, never at the in-worktree original. A plain
+     copy gets a brand-new mtime at copy time, which happens here, after
+     the executor's commit — so the copy clears the same gate the original
+     never could.
+   - Call `scripts/evidence-capture --task <id> --repo <worktree> --artifact verify:results=<scratch-path>/results.json [...]`
+     — `verify:results` plus one `--artifact` per probe item's *copy* from
+     above, pointing `--artifact` straight at each scratch-path file, never
+     at a path staged inside `<worktree>` first. `evidence-capture` reads
+     an artifact from wherever `--artifact` names it and copies it into
+     the worktree's own evidence directory itself; it never needs the
+     source file to already live in the worktree. This is what lets this
+     call succeed on task 1: with the items file, `results.json`, and any
+     probe-artifact copies kept outside `<worktree>` throughout, the only
+     thing present in the worktree at this point is the executor's own
+     committed change, so `evidence-capture`'s clean-tree check has a real,
+     clean tree to check (issue #45) instead of refusing before task 1 ever
+     completes.
    - **Commit the evidence directory `evidence-capture` just wrote** — a
      plain `git add`/`git commit` of exactly that dated folder, distinct
      from `status-flip`'s own commit below. `evidence-capture` writes
@@ -179,7 +229,9 @@ For each task block, in order:
      dirty, which makes the *next* task's `evidence-capture` call refuse
      against it (it requires a clean tree — see its own freshness rule).
      Do this before calling `status-flip`, not after.
-   - Call `scripts/status-flip --plan <path> --task <label> --results <results.json>`.
+   - Call `scripts/status-flip --plan <path> --task <label> --results <scratch-path>/results.json`,
+     the same scratch-path file from step 5 — `status-flip` only reads it,
+     never requires it to live in the worktree either.
      `status-flip` derives the `PASS` token itself from `results.json`'s
      own `overall` field — you never hand it a status string on this path.
    - Move to the next task. A `LOW`-cadence task streams straight through
@@ -202,7 +254,10 @@ distinguished from a new failure on a *different* one.
      as a wrong approach (wrong file touched, task misunderstood, a
      `Not here` boundary crossed).
 
-   Either way, re-run step 2.5 (`verify`) against the new attempt.
+   Either way, re-run step 2.5 (`verify`) against the new attempt. Both
+   FIX and RESAMPLE are dispatches — capture a fresh dispatch timestamp
+   per step 2.2 for each one; step 2.5's `--since` on the re-run is this
+   new attempt's own timestamp, never the first attempt's.
 2. **Second FAIL on the *same* item ID.** Before treating this as genuine,
    re-run `scripts/verify` exactly once more against the same,
    already-produced artifacts — no new executor dispatched — to rule out

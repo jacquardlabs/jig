@@ -1,0 +1,122 @@
+"""Regression tests for `_vocabulary.py` (issue #27, story
+vocabulary-single-source).
+
+`test_discipline_skill.py` used to check
+`skills/task-execution-discipline/SKILL.md`'s body against an independent,
+hand-copied `JIG_VOCABULARY` tuple. That tuple could drift from
+`DESIGN.md`'s Vocabulary table -- the ratified handoff's actual source of
+truth -- without anything noticing: renaming a token in `DESIGN.md` had no
+effect on the hardcoded copy, so the check kept passing regardless of
+whether `SKILL.md` still matched the *current* canon.
+
+`_vocabulary.py` now derives that list from `DESIGN.md`'s text at test
+time. This module checks the derivation itself:
+
+1. It pulls the expected terms out of the real `DESIGN.md` (a light sanity
+   check, not a re-implementation of the derivation logic).
+2. It demonstrates the actual fix: mutating a token in an in-memory copy
+   of `DESIGN.md`'s text changes what the derivation returns, and checking
+   the (unmodified) `SKILL.md` body against the mutated result now catches
+   a missing term -- exactly the drift a hardcoded tuple could never
+   detect.
+
+Standard library only, matching the other test modules' convention. Run
+with:
+
+    uv run --no-project python3 -m unittest discover -s tests -v
+"""
+from __future__ import annotations
+
+import unittest
+from pathlib import Path
+
+from _vocabulary import derive_jig_vocabulary
+
+REPO_ROOT = Path(__file__).resolve().parent.parent
+DESIGN_MD = REPO_ROOT / "DESIGN.md"
+SKILL_MD = REPO_ROOT / "skills" / "task-execution-discipline" / "SKILL.md"
+
+
+class TestDeriveJigVocabulary(unittest.TestCase):
+    def setUp(self) -> None:
+        self.design_text = DESIGN_MD.read_text(encoding="utf-8")
+        self.skill_body = SKILL_MD.read_text(encoding="utf-8")
+        self.vocabulary = derive_jig_vocabulary(self.design_text)
+
+    def test_pulls_known_terms_from_the_real_design_md(self) -> None:
+        # A light sanity check that parsing actually found real content --
+        # not a second independent copy of the full expected list.
+        for term in ("cap", "hold", "PASS", "Done means", "Evidence"):
+            with self.subTest(term=term):
+                self.assertIn(term, self.vocabulary)
+
+    def test_excludes_other_commands_verdict_vocabularies(self) -> None:
+        # /design, /plan, /finish, and the inspector each own their own
+        # verdict enum in the same Vocabulary table; task-execution-
+        # discipline discusses none of them, so they must not leak in.
+        for term in ("DESIGNED", "PLAN READY", "MERGE", "CLEAR", "LOW"):
+            with self.subTest(term=term):
+                self.assertNotIn(term, self.vocabulary)
+
+    def test_every_derived_term_is_present_in_skill_md(self) -> None:
+        # Cross-check against the file test_discipline_skill.py actually
+        # exercises, so a failure here is caught before it would surface
+        # there.
+        missing = [t for t in self.vocabulary if t not in self.skill_body]
+        self.assertEqual(missing, [])
+
+    def test_deliberate_design_md_token_change_is_caught(self) -> None:
+        """The demonstration the story asks for: rename a canonical token
+        in an in-memory copy of DESIGN.md's Vocabulary table, without
+        touching SKILL.md, and confirm the derived vocabulary -- and thus
+        the check in test_discipline_skill.py -- now flags it missing.
+
+        Under the old hardcoded JIG_VOCABULARY tuple this rename would
+        have had no effect at all: the tuple was independent of
+        DESIGN.md's text, so the equivalent check would have kept passing
+        silently even though the skill's canon had moved on.
+        """
+        mutated_design_text = self.design_text.replace(
+            "`cap` \\| `hold`", "`workitem` \\| `hold`", 1
+        )
+        # Sanity: the substitution actually landed once, not zero or many
+        # times (would otherwise indicate DESIGN.md's table changed shape
+        # out from under this test's assumption).
+        self.assertEqual(
+            self.design_text.count("`cap` \\| `hold`"),
+            1,
+            "expected exactly one `cap` | `hold` cell in DESIGN.md's "
+            "Vocabulary table; this test's mutation assumption needs "
+            "updating to match the table's current shape",
+        )
+
+        mutated_vocabulary = derive_jig_vocabulary(mutated_design_text)
+
+        self.assertIn(
+            "workitem",
+            mutated_vocabulary,
+            "derivation did not pick up the renamed token at all",
+        )
+        self.assertNotIn(
+            "cap",
+            mutated_vocabulary,
+            "derivation still returned the old token after it was renamed",
+        )
+
+        # The actual demonstration: checking the *unmodified* SKILL.md
+        # body against the *mutated* (i.e. current-per-DESIGN.md) term
+        # list surfaces the drift as a missing term, rather than passing
+        # silently.
+        missing = [t for t in mutated_vocabulary if t not in self.skill_body]
+        self.assertIn(
+            "workitem",
+            missing,
+            "a deliberate DESIGN.md token rename should have been caught "
+            "as a missing term once SKILL.md wasn't updated to match",
+        )
+
+
+if __name__ == "__main__":
+    import sys
+
+    sys.exit(unittest.main())

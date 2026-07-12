@@ -9,21 +9,19 @@
 
 Language conventions `code-auditor` enforces at `/gate-audit`. Document the rules and any deliberate deviations here — they override Studious's built-in idiom rubric.
 
-<!-- FILL IN / CONFIRM: no code exists yet (no pyproject.toml, package.json,
-     go.mod, or Cargo.toml found) — there's nothing to detect a primary
-     language from. The handoff's own "Immediate next actions" (§10) says to
-     scaffold jig "following studious's repo conventions," and studious is a
-     Python project — Python is the likely choice for jig's scripts
-     (scripts/plan-lint, scripts/design-lint) too, but this is a
-     recommendation to confirm at M1, not a detected fact. -->
+Confirmed at M1 (repo & plugin scaffold, #30): `pyproject.toml`, `scripts/plan-lint`, `scripts/design-lint`, and `tests/*.py` are all Python — the recommendation below is now a detected fact, not a guess.
 
 - **Python** — target 3.11+ (per the user's stated global preference for
   ML/general tooling compatibility). Use `uv` for all Python tooling. Type
   hints required on all code. Prefer comprehensions, generator expressions,
   and stdlib (`functools`, `itertools`, `collections`) over explicit loops.
-- **Linter** — Ruff, matching the likely toolchain; confirm rule selection at
-  M1.
-- **Deliberate deviations** — none yet; there's no code to deviate in.
+- **Linter** — Ruff. `pyproject.toml`'s `[tool.ruff.lint]` selects `B`, `C4`,
+  `PERF`, `PIE`, `RUF`, `SIM` (matches `reference/idioms/python.md`'s stated
+  rule set); not yet wired into a CI job (tracked separately).
+- **Tests** — standard-library `unittest`, run via
+  `uv run --no-project python3 -m unittest discover -s tests -v` (see
+  `tests/test_scaffold.py`); no pytest dependency for a repo this young.
+- **Deliberate deviations** — none.
 
 ### Quality gates
 

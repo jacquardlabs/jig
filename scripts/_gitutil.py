@@ -8,6 +8,14 @@ this module is the one place it lives, mirroring the `tests/_frontmatter.py`
 / `tests/_vocabulary.py` leading-underscore "shared, not itself collected"
 convention already established in this repo.
 
+`worktree-setup`'s baseline check and `verify`'s command-tier items also
+share a second concern that isn't strictly about git: running an untrusted,
+plan- or project-supplied shell command under a timeout (issue #49) without
+leaking an orphaned child past that timeout (issue #61). `run_shell_with_
+timeout` below is that shared execution helper, kept in this module rather
+than a third one so the two scripts still have exactly one shared,
+dependency-free import.
+
 Not a package, not importable from outside `scripts/` — each script adds
 its own directory to `sys.path` before importing this (see any script's
 top for the pattern). Deliberately dependency-free (standard library only)
@@ -15,6 +23,8 @@ so each script stays a standalone CLI tool per `docs/design/build-scripts.md`.
 """
 from __future__ import annotations
 
+import os
+import signal
 import subprocess
 from pathlib import Path
 
@@ -24,6 +34,51 @@ command and `verify`'s command-tier items (issue #49) -- the same value in
 both, so they don't drift apart. Suites legitimately run minutes; a hung
 command (waiting on stdin, deadlocked, network-bound with no timeout of its
 own) should still be killed well short of hanging a session indefinitely."""
+
+
+def run_shell_with_timeout(command: str, cwd: Path, timeout: float) -> subprocess.CompletedProcess[str]:
+    """Run `command` via the shell, killing its *whole process group* — not
+    just the shell — if it outlives `timeout` (issue #61).
+
+    `shell=True` spawns the shell as an intermediate process. A compound or
+    piped command (a backgrounded job, a multi-stage pipeline, anything the
+    shell itself forks) runs as a child of that shell, sharing its process
+    group. Plain `subprocess.run(..., shell=True, timeout=timeout)` only
+    signals the shell process on timeout (`Popen.kill()`), which can leave
+    such a child running after the caller is told the command "was killed".
+
+    `start_new_session=True` makes the shell the leader of a fresh session
+    and process group (equal to its own pid); on timeout, `os.killpg` signals
+    every process sharing that group at once, so a backgrounded or piped
+    child dies alongside the shell instead of being orphaned to reparent and
+    keep running.
+
+    Drop-in for `subprocess.run(command, shell=True, cwd=cwd,
+    capture_output=True, text=True, check=False, timeout=timeout)`: returns
+    an equivalent `CompletedProcess` on success, and raises the same
+    `subprocess.TimeoutExpired` (with `.stdout`/`.stderr` already populated
+    from whatever was captured before the timeout fired) on a hang — callers
+    catch it exactly as they would `subprocess.run`'s own.
+    """
+    with subprocess.Popen(
+        command,
+        shell=True,
+        cwd=cwd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        start_new_session=True,
+    ) as process:
+        try:
+            stdout, stderr = process.communicate(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            # Kill the whole process group the shell leads, not just the
+            # shell itself -- a backgrounded/piped child shares that group
+            # and would otherwise survive, reparented, past this timeout.
+            os.killpg(process.pid, signal.SIGKILL)
+            process.wait()
+            raise
+        return subprocess.CompletedProcess(process.args, process.returncode, stdout, stderr)
 
 
 def run(cmd: list[str], cwd: Path | None = None) -> subprocess.CompletedProcess[str]:

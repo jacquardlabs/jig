@@ -56,10 +56,20 @@ SAFE_IDENTIFIER_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
 
 
 def _check_safe_identifier(value: str, field: str) -> None:
-    """Raise ValueError unless `value` is a plain path-safe identifier."""
-    if not SAFE_IDENTIFIER_RE.match(value):
+    """Raise ValueError unless `value` is a plain path-safe identifier.
+
+    The SAFE_IDENTIFIER_RE allowlist admits '.' as a character (so labels
+    like "v1.2" work), which means the bare strings '.' and '..' pass it
+    too — those are the two traversal tokens the regex was meant to keep
+    out in the first place. A no-suffix artifact source combined with a
+    '..' label collapses to a destination name of exactly '..'
+    (`dest_name = f"{label}{path.suffix}"`), which shutil.copy2 resolves
+    to the evidence directory's parent rather than refusing (issue #60).
+    Reject both exact strings explicitly, on top of the regex.
+    """
+    if value in {".", ".."} or not SAFE_IDENTIFIER_RE.match(value):
         raise ValueError(
-            f"{field} '{value}' must be a plain identifier matching [A-Za-z0-9_.-]+ (no '/' or '..')"
+            f"{field} '{value}' must be a plain identifier matching [A-Za-z0-9_.-]+ and not be '.' or '..'"
         )
 
 

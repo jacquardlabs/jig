@@ -22,12 +22,13 @@ Checks the story's acceptance criteria mechanically:
    user-invoked five, so any *unaccounted-for* extra directory still fails
    the build.
 3. `scripts/plan-lint` and `scripts/design-lint` exist and are executable.
-   `design-lint` is still the M1 stub (M2 hasn't replaced it yet) and exits
-   0 unconditionally, per premortem risk #4. `plan-lint` is no longer a
-   stub as of the plan-lint story (issue #12, M3) — it's a real,
-   deterministic-exit-code linter now, so "exits 0 unconditionally" is no
-   longer one of its acceptance properties; its own behavior is checked by
-   test_plan_lint.py instead.
+   Neither is the M1 stub any longer: `plan-lint` graduated to a real,
+   deterministic-exit-code linter at M3 (story plan-lint, issue #12) — its
+   own behavior is checked by test_plan_lint.py. `design-lint` graduated to
+   a real linter at M2 (story design-lint, issue #9) — see
+   `tests/test_design_lint.py` for its behavior; this module only confirms
+   its CLI now enforces required arguments (a bare invocation is a usage
+   error) rather than the old stub's unconditional exit 0.
 """
 from __future__ import annotations
 
@@ -172,24 +173,20 @@ class TestLintScriptStubs(unittest.TestCase):
                     os.access(path, os.X_OK), f"{path} is not executable"
                 )
 
-    def test_design_lint_is_still_the_m1_stub_and_runs_clean(self) -> None:
-        # plan-lint dropped out of this assertion when it stopped being a
-        # stub (issue #12, M3) — a real linter run with no PLAN.md present
-        # correctly reports a usage error (exit 2), not a vacuous PASS; see
-        # test_plan_lint.py for its actual acceptance tests.
+    def test_design_lint_is_a_real_cli_not_a_stub(self) -> None:
+        # design-lint graduated from an M1 stub to a real linter at M2
+        # (story design-lint, issue #9); tests/test_design_lint.py owns its
+        # full behavior. This scaffold-level check only confirms it's a
+        # real argparse CLI now -- a bare invocation (missing the required
+        # --doc) is a usage error, not the old stub's unconditional exit 0.
         path = REPO_ROOT / "scripts" / "design-lint"
         result = subprocess.run(
-            [str(path)],
-            capture_output=True,
-            text=True,
-            timeout=10,
-            check=False,
+            [str(path)], capture_output=True, text=True, timeout=10, check=False
         )
         self.assertEqual(
-            result.returncode,
-            0,
-            f"{path} exited {result.returncode}: {result.stderr}",
+            result.returncode, 2, f"{path} exited {result.returncode}: {result.stderr}"
         )
+        self.assertIn("--doc", result.stderr)
 
 
 if __name__ == "__main__":

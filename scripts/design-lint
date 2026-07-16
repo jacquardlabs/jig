@@ -1,25 +1,437 @@
 #!/usr/bin/env python3
-"""Stub for jig's design-doc linter.
+"""jig's design-lint script (story design-lint, issue #9).
 
-Not yet implemented. Once jig milestone M2 (`/design`) ships, this checks a
-design doc against DESIGN.md's Formatting conventions: 5-8 sections, each
-tied to a named downstream consumer (Intent, Experience, Contracts,
-Approach, Assumptions, Not doing, Risks — see the section-to-consumer table
-in the ratified handoff, §5.1 step 4).
+Mechanically validates a `design-<slug>.md` document against `DESIGN.md`'s
+own "Design doc structure" convention -- 5-8 top-level sections, each drawn
+from a named canonical vocabulary (`Intent`, `Experience`, `Contracts`,
+`Approach`, `Assumptions`, `Not doing`, `Risks`) -- plus four further checks
+this story's acceptance criteria name (docs/design/design-lint.md):
 
-Exits 0 unconditionally for now, so it's safe to wire into a build/CI step
-ahead of the real implementation (see jig milestone M1 acceptance criteria
-for scaffold-skeleton: an executable stub, not a working linter).
+1. Section count (5-8) and vocabulary: every heading matches the canonical
+   list, no duplicates; `Contracts`/`Assumptions`/`Experience` are
+   unconditionally required (checks 2-4 presuppose them); at least two of
+   the four remaining names must also be present to reach the 5-section
+   floor.
+2. `Contracts` is concrete, not prose-only: a fenced code block, a markdown
+   table, or >= `MIN_ARTIFACT_SPANS` distinct artifact-shaped inline-code
+   spans (a filename, an endpoint, a field -- NOT any backtick-quoted
+   filler word; see premortem risk #7).
+3. Every `Assumptions` bullet is checkable: either interview-ruled (tagged
+   with a `(qN)` fork citation -- Check 5 verifies the ruling itself) or
+   tree-checkable (an inline-code span shaped like a file path, optionally
+   `:line` / `:line-line`, resolved against `--repo` at lint time -- never
+   the process's cwd, and never an absolute or `../`-escaping citation;
+   premortem risk #4).
+4. `Experience` names at least one failure path alongside its happy path --
+   a closed, deliberately narrow token vocabulary (premortem risk #3: a
+   real failure phrased without any listed token is a known false
+   negative, not a bug).
+5. Every distinct `(qN)` fork citation, scanned across the whole document,
+   has a ruling-shaped clause (closed ruling-verb vocabulary) in the same
+   sentence or bullet as at least one of its occurrences.
+
+A trailing `## Revision History` section is excluded from every check.
+Parsing splits on `## ` headings alone, never on a `---` divider, so an
+in-body horizontal rule elsewhere in the document can't mis-slice the
+section list (premortem risk #5).
+
+Reports every violation found in a single run (never fails fast), matching
+`verify`'s own established precedent. Exit codes: 0 clean pass (all five
+checks). 1 one or more checks failed. 2 usage error (unreadable doc, bad
+--repo).
 """
 from __future__ import annotations
 
+import argparse
+import re
 import sys
+from dataclasses import dataclass
+from itertools import pairwise
+from pathlib import Path
+
+# The only canonical section vocabulary this repo has committed to
+# (DESIGN.md's "Design doc structure" line). Checks 2-4 each presuppose one
+# of Contracts/Assumptions/Experience exists, so those three are
+# unconditionally required; the remaining four fill out the 5-8 range, with
+# at least MIN_OPTIONAL_FOR_FLOOR of them present to reach the 5-section
+# floor (docs/design/design-lint.md, Check 1).
+REQUIRED_SECTIONS = ("Contracts", "Assumptions", "Experience")
+OPTIONAL_SECTIONS = ("Intent", "Approach", "Not doing", "Risks")
+CANONICAL_SECTIONS = REQUIRED_SECTIONS + OPTIONAL_SECTIONS
+MIN_SECTIONS = 5
+MAX_SECTIONS = 8
+MIN_OPTIONAL_FOR_FLOOR = 2
+
+# Check 2's concreteness floor: the minimum number of distinct
+# artifact-shaped inline-code spans a prose Contracts section needs to
+# count as "concrete, not prose-only" when it carries neither a fenced code
+# block nor a markdown table. A build-phase constant per the design doc's
+# own non-requirements clause.
+MIN_ARTIFACT_SPANS = 3
+
+# Check 4's failure-path vocabulary -- deliberately narrow (design doc:
+# "exact list a build-phase constant"). A real failure path phrased without
+# any of these is a known false negative (premortem risk #3), not silently
+# widened away.
+FAILURE_TOKEN_RE = re.compile(
+    r"\bfail(?:s|ed|ure)?\b|\berror(?:s)?\b|\bstops?\b|\brefus(?:es|ed|al)?\b"
+    r"|\bnot installed\b|\bunavailable\b",
+    re.IGNORECASE,
+)
+FAILURE_SUBHEADING_RE = re.compile(r"^#{3,6}\s*failure\b", re.IGNORECASE | re.MULTILINE)
+
+# Check 5's ruling-verb vocabulary -- same "e.g." list the design doc names,
+# stems included (ruled/ruling/rules, confirmed/confirms/confirmation, ...).
+RULING_VERB_RE = re.compile(
+    r"\brul(?:ed|ing|es)?\b|\bconfirm(?:ed|s|ation)?\b|\breject(?:ed|s|ion)?\b"
+    r"|\bdecid(?:ed|es|ing)?\b|\brank(?:ed|s|ing)?\b",
+    re.IGNORECASE,
+)
+FORK_TAG_RE = re.compile(r"\(q(\d+)\)", re.IGNORECASE)
+
+INLINE_CODE_RE = re.compile(r"`([^`\n]+)`")
+# Excludes plain-English filler like `maybe`/`later` from counting as a
+# Check-2 concreteness marker (premortem risk #7) -- an artifact-shaped span
+# names a real file, endpoint, or field, which in practice carries a slash,
+# a dot, an underscore, a digit, or a `{param}` brace.
+ARTIFACT_SPAN_RE = re.compile(r"[/._{}\d]")
+# A citation shaped like a file path, optionally with a `:line` or
+# `:line-line` suffix -- e.g. `server.py:3120-3134` (Check 3).
+PATH_SPAN_RE = re.compile(r"^(?P<path>[\w./-]+)(?::(?P<line>\d+(?:-\d+)?))?$")
+
+HEADING_RE = re.compile(r"^##\s+(.+?)\s*$", re.MULTILINE)
+BULLET_START_RE = re.compile(r"^(?:[-*]|\d+\.)\s+")
 
 
-def main() -> int:
-    print("design-lint: stub — no checks implemented yet (see jig milestone M2).")
-    return 0
+@dataclass
+class Section:
+    heading: str
+    body: str
+
+
+def _normalize(heading: str) -> str:
+    return re.sub(r"\s+", " ", heading.strip()).casefold()
+
+
+_CANONICAL_BY_NORM = {_normalize(name): name for name in CANONICAL_SECTIONS}
+
+
+def parse_sections(text: str) -> list[Section]:
+    """Split `text` into top-level (`## `) sections, heading + body (up to
+    the next `## ` heading or EOF). A trailing `## Revision History`
+    section is dropped -- it's an existing convention (a viva sign-off
+    stamp appended after the design content proper), not part of the
+    design content any check below operates on. Splitting happens on `## `
+    headings alone, never on a `---` divider, so an in-body horizontal rule
+    elsewhere can't mis-slice this (premortem risk #5).
+    """
+    matches = list(HEADING_RE.finditer(text))
+    sections = [
+        Section(
+            heading=m.group(1).strip(),
+            body=text[m.end() : (matches[i + 1].start() if i + 1 < len(matches) else len(text))],
+        )
+        for i, m in enumerate(matches)
+    ]
+    if sections and _normalize(sections[-1].heading) == "revision history":
+        sections = sections[:-1]
+    return sections
+
+
+def find_section(sections: list[Section], name: str) -> Section | None:
+    norm = _normalize(name)
+    return next((s for s in sections if _normalize(s.heading) == norm), None)
+
+
+def split_bullets(body: str) -> list[str]:
+    """Group `body`'s lines into top-level bullet units: a bullet starts at
+    a `-`/`*`/`N.` marker at column 0 and absorbs every following line
+    (including further-indented nested bullets) up to the next top-level
+    marker or a blank line."""
+    bullets: list[str] = []
+    current: list[str] = []
+    for line in body.splitlines():
+        if BULLET_START_RE.match(line):
+            if current:
+                bullets.append("\n".join(current))
+            current = [line]
+        elif line.strip() == "":
+            if current:
+                bullets.append("\n".join(current))
+                current = []
+        elif current:
+            current.append(line)
+    if current:
+        bullets.append("\n".join(current))
+    return bullets
+
+
+def split_paragraph_sentences(body: str) -> list[str]:
+    """Approximate non-bullet prose into sentence-sized units for Check 5's
+    "same sentence" scope (bullets are handled separately by
+    `split_bullets`, which stays a whole-bullet unit). A false merge across
+    a sentence boundary only widens the window Check 5 searches for a
+    ruling verb -- it can never turn a real ruling into a missing one, only
+    the reverse, matching the check's report-every-violation, never-silent
+    posture.
+    """
+    paragraphs: list[str] = []
+    current: list[str] = []
+    for line in body.splitlines():
+        if BULLET_START_RE.match(line):
+            if current:
+                paragraphs.append(" ".join(current))
+                current = []
+            continue
+        if line.strip() == "":
+            if current:
+                paragraphs.append(" ".join(current))
+                current = []
+        else:
+            current.append(line.strip())
+    if current:
+        paragraphs.append(" ".join(current))
+
+    sentences: list[str] = []
+    for para in paragraphs:
+        parts = re.split(r"(?<=[.!?])\s+(?=[A-Z0-9`*\"])", para)
+        sentences.extend(p for p in parts if p.strip())
+    return sentences
+
+
+def _bullet_label(bullet: str) -> str:
+    return bullet.strip().splitlines()[0][:120]
+
+
+def check_1_section_vocabulary(sections: list[Section]) -> list[str]:
+    violations: list[str] = []
+    present: dict[str, str] = {}
+
+    for s in sections:
+        norm = _normalize(s.heading)
+        canonical = _CANONICAL_BY_NORM.get(norm)
+        if canonical is None:
+            violations.append(
+                f"section '{s.heading}' does not match jig's canonical section "
+                "vocabulary — see DESIGN.md's Design doc structure"
+            )
+        elif norm in present:
+            violations.append(f"duplicate section '{canonical}' (appears more than once)")
+        else:
+            present[norm] = canonical
+
+    count = len(sections)
+    if not (MIN_SECTIONS <= count <= MAX_SECTIONS):
+        violations.append(f"{count} top-level sections found; DESIGN.md requires 5-8")
+
+    present_names = set(present.values())
+    violations.extend(
+        f"missing required section '{name}' (Checks 2-4 presuppose it exists)"
+        for name in REQUIRED_SECTIONS
+        if name not in present_names
+    )
+
+    optional_present = [name for name in OPTIONAL_SECTIONS if name in present_names]
+    if len(optional_present) < MIN_OPTIONAL_FOR_FLOOR:
+        missing = [n for n in OPTIONAL_SECTIONS if n not in present_names]
+        violations.append(
+            f"only {len(optional_present)} of {list(OPTIONAL_SECTIONS)} present; "
+            f"at least {MIN_OPTIONAL_FOR_FLOOR} are required to reach the "
+            f"5-section floor (missing: {', '.join(missing)})"
+        )
+
+    return violations
+
+
+def _has_fenced_code_block(body: str) -> bool:
+    return "```" in body
+
+
+_TABLE_DELIM_RE = re.compile(r"^[\s:|-]+$")
+
+
+def _has_markdown_table(body: str) -> bool:
+    lines = [ln.strip() for ln in body.splitlines() if ln.strip()]
+    return any(
+        a.startswith("|") and "-" in b and _TABLE_DELIM_RE.match(b)
+        for a, b in pairwise(lines)
+    )
+
+
+def check_2_contracts_concrete(sections: list[Section]) -> list[str]:
+    section = find_section(sections, "Contracts")
+    if section is None:
+        return []  # Check 1 already names the missing required section
+
+    body = section.body
+    if _has_fenced_code_block(body) or _has_markdown_table(body):
+        return []
+
+    spans = {m.group(1) for m in INLINE_CODE_RE.finditer(body)}
+    artifact_spans = {s for s in spans if ARTIFACT_SPAN_RE.search(s)}
+    if len(artifact_spans) >= MIN_ARTIFACT_SPANS:
+        return []
+
+    return [
+        "section 'Contracts' has no concrete shape markers — no fenced code "
+        f"block, no markdown table, and only {len(artifact_spans)} "
+        f"artifact-shaped inline-code span(s) (need >= {MIN_ARTIFACT_SPANS})"
+    ]
+
+
+def _looks_like_path(span: str) -> str | None:
+    """Return the path portion of `span` if it's shaped like a file-path
+    citation (optionally with a `:line`/`:line-line` suffix), else None."""
+    m = PATH_SPAN_RE.match(span)
+    if not m:
+        return None
+    path = m.group("path")
+    return path if ("." in path or "/" in path) else None
+
+
+def _resolves_in_repo(path_str: str, repo_root: Path) -> bool:
+    if Path(path_str).is_absolute():
+        return False  # design-lint only resolves repo-relative citations
+    candidate = (repo_root / path_str).resolve()
+    try:
+        candidate.relative_to(repo_root.resolve())
+    except ValueError:
+        return False  # a `../`-style citation escaping the repo root never resolves
+    return candidate.is_file()
+
+
+def check_3_assumptions_checkable(sections: list[Section], repo_root: Path) -> list[str]:
+    section = find_section(sections, "Assumptions")
+    if section is None:
+        return []  # Check 1 already names the missing required section
+
+    violations: list[str] = []
+    for bullet in split_bullets(section.body):
+        if FORK_TAG_RE.search(bullet):
+            continue  # interview-ruled; Check 5 verifies the ruling itself
+
+        path_spans = [p for span in INLINE_CODE_RE.findall(bullet) if (p := _looks_like_path(span))]
+        if not path_spans:
+            violations.append(
+                "assumption bullet is neither interview-ruled (no '(qN)' tag) "
+                f"nor tree-checkable (no file-path-shaped inline-code span): "
+                f"{_bullet_label(bullet)!r}"
+            )
+            continue
+
+        unresolved = [p for p in path_spans if not _resolves_in_repo(p, repo_root)]
+        if unresolved:
+            violations.append(
+                f"assumption bullet cites a path that does not exist in the "
+                f"tree ({', '.join(unresolved)}): {_bullet_label(bullet)!r}"
+            )
+
+    return violations
+
+
+def check_4_experience_failure_path(sections: list[Section]) -> list[str]:
+    section = find_section(sections, "Experience")
+    if section is None:
+        return []  # Check 1 already names the missing required section
+
+    if FAILURE_TOKEN_RE.search(section.body) or FAILURE_SUBHEADING_RE.search(section.body):
+        return []
+
+    return [
+        "section 'Experience' has no failure-path language (expected e.g. "
+        "'fails', 'error', 'stops', 'refuses', 'not installed', "
+        "'unavailable', or a 'Failure' sub-heading)"
+    ]
+
+
+def check_5_fork_rulings(sections: list[Section]) -> list[str]:
+    # Scans the whole document -- forks are referenced across Intent,
+    # Contracts, Assumptions, and Not doing alike in the one real precedent
+    # available (docs/design/design-lint.md, Check 5).
+    units: list[str] = []
+    for s in sections:
+        units.extend(split_bullets(s.body))
+        units.extend(split_paragraph_sentences(s.body))
+
+    ruled: dict[str, bool] = {}
+    for unit in units:
+        tags = {m.group(1) for m in FORK_TAG_RE.finditer(unit)}
+        if not tags:
+            continue
+        has_ruling = bool(RULING_VERB_RE.search(unit))
+        for tag in tags:
+            ruled[tag] = ruled.get(tag, False) or has_ruling
+
+    return [
+        f"fork q{tag} has no recorded ruling (no ruling-shaped clause found "
+        "in the same sentence or bullet as any of its '(qN)' citations)"
+        for tag in sorted(ruled, key=int)
+        if not ruled[tag]
+    ]
+
+
+@dataclass
+class CheckResult:
+    name: str
+    violations: list[str]
+
+
+def run_checks(text: str, repo_root: Path) -> list[CheckResult]:
+    sections = parse_sections(text)
+    return [
+        CheckResult("section count and vocabulary", check_1_section_vocabulary(sections)),
+        CheckResult("Contracts concreteness", check_2_contracts_concrete(sections)),
+        CheckResult("Assumptions checkability", check_3_assumptions_checkable(sections, repo_root)),
+        CheckResult("Experience failure path", check_4_experience_failure_path(sections)),
+        CheckResult("fork rulings", check_5_fork_rulings(sections)),
+    ]
+
+
+def parse_args(argv: list[str]) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        prog="design-lint",
+        description="Mechanically validate a design-<slug>.md doc against DESIGN.md's Design doc structure.",
+    )
+    parser.add_argument("--doc", required=True, help="path to the design-<slug>.md file to lint")
+    parser.add_argument(
+        "--repo",
+        default=".",
+        help="repo root Assumptions-section path citations are resolved against (default: cwd)",
+    )
+    return parser.parse_args(argv)
+
+
+def main(argv: list[str]) -> int:
+    args = parse_args(argv)
+
+    doc_path = Path(args.doc)
+    try:
+        text = doc_path.read_text(encoding="utf-8")
+    except OSError as exc:
+        print(f"error: could not read '{doc_path}': {exc}", file=sys.stderr)
+        return 2
+
+    repo_root = Path(args.repo)
+    if not repo_root.is_dir():
+        print(f"error: --repo '{args.repo}' is not a directory", file=sys.stderr)
+        return 2
+
+    results = run_checks(text, repo_root.resolve())
+
+    total = 0
+    for result in results:
+        for violation in result.violations:
+            print(f"[FAIL] {result.name}: {violation}")
+            total += 1
+
+    failed_checks = sum(1 for r in results if r.violations)
+    if total == 0:
+        print(f"design-lint: {doc_path} — clean pass ({len(results)} checks, 0 violations)")
+        return 0
+
+    print(f"design-lint: {doc_path} — {total} violation(s) across {failed_checks} check(s)")
+    return 1
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(main(sys.argv[1:]))

@@ -42,6 +42,13 @@ test_discipline_skill.py already takes for its own sibling skill):
     lines instead (gate-acceptance fix-and-retry finding on this story:
     the dispatch prompt never taught the executor to commit or hand back
     a SHA/JSON, contradicted by the demonstrated evidence).
+11. Step 1.1's missing-baseline-convention PAUSE (stop before any worktree,
+    name the missing convention plus the resume action, never guess or
+    add a workaround flag) and Step 1.4's trailing-coarser-heading
+    exclusion from the last task's block are each present and unambiguous
+    -- epic m4-closeout finale-audit follow-up (issue #50, story
+    safety-behavior-regression-tests), covering pre-mortem risks #5 and #7
+    that this file didn't yet check phrase-for-phrase.
 """
 from __future__ import annotations
 
@@ -311,6 +318,60 @@ class TestBuildSkillBody(unittest.TestCase):
         for field in ("Why now", "Read first", "Rests on", "Do", "Not here", "Done means", "Evidence"):
             with self.subTest(field=field):
                 self.assertIn(field, self.body)
+
+    def test_step_1_1_missing_baseline_convention_pauses_before_any_worktree(self) -> None:
+        # Step 1.1 / epic pre-mortem risk #5 (docs/studious/premortems/build-skill.md):
+        # a target CLAUDE.md that names no baseline command *at all* is a
+        # Setup-time stop for the Foreman itself -- distinct from
+        # scripts/worktree-setup's own dirty-baseline case (a *named*
+        # command that then fails after the worktree already exists; see
+        # TestWorktreeSetupDirtyBaseline in test_worktree_setup.py). This
+        # checks the instruction is unambiguous by requiring every one of
+        # its load-bearing parts to be in the body together: the exact
+        # trigger (no convention at all, not merely an unfamiliar one), the
+        # exact stop point (before any worktree is created), the exact
+        # verdict token (PAUSED), the exact resume action (add a
+        # baseline-command convention, then re-invoke), and the explicit
+        # refusal to paper over the gap by guessing a runner or inventing a
+        # workaround flag -- silent, unverified building is what this stop
+        # exists to prevent.
+        self.assertPhraseIn("If the target project's `CLAUDE.md` names no baseline command at all")
+        self.assertPhraseIn("stop here — before creating any worktree — and report **PAUSED**")
+        self.assertPhraseIn(
+            'naming exactly what\'s missing (no "Tests" or equivalent convention in `CLAUDE.md`) '
+            "and the resume action (add a baseline-command convention to `CLAUDE.md`, "
+            "then re-invoke `/build`)"
+        )
+        self.assertPhraseIn(
+            "Do not add a second input or flag to work around this; silent, unverified "
+            "building is the one thing this stop exists to prevent"
+        )
+        self.assertPhraseIn("never guess a test runner and never hardcode one")
+
+    def test_step_1_4_excludes_trailing_coarser_heading_from_last_task_block(self) -> None:
+        # Step 1.4 / epic pre-mortem risk #7: splitting the plan into task
+        # blocks is the Foreman's own judgment, explicitly *not* a
+        # mechanical heading-depth parser -- and must not let a coarser
+        # trailing section (e.g. a closing "## Not-here follow-ups") bleed
+        # into the last task's dispatched block, reproducing the real M0
+        # dogfood bug this instruction exists to prevent. No script performs
+        # this split (status-flip only edits a single `### Task <label>`
+        # heading line in place, see test_status_flip.py's
+        # TestStatusFlipHeadingMatch), so a phrase-level check on the
+        # Foreman's own reading instructions -- rather than a live parser
+        # demonstration -- is the regression guard available here.
+        self.assertPhraseIn("This is your own judgment, not a mechanical heading-depth parser")
+        self.assertPhraseIn(
+            "read to each `### Task N — <title>` heading and stop accumulating a "
+            "task's content at the next `### ` heading"
+        )
+        self.assertPhraseIn("Explicitly exclude any trailing content at a coarser heading level")
+        self.assertPhraseIn("a closing `## Not-here follow-ups` section")
+        self.assertPhraseIn(
+            "a naive parser silently absorbs that trailing section into the preceding task card"
+        )
+        self.assertPhraseIn("a real bug the project's own M0 dogfood surfaced")
+        self.assertPhraseIn("read for meaning and don't reproduce it")
 
 
 if __name__ == "__main__":

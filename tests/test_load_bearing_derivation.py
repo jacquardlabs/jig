@@ -96,6 +96,28 @@ Done means:
 Evidence: n/a
 """
 
+TITLE_ONLY_MATCH_PLAN = """### Task 1 — Add the groundwork
+Rests on:   nothing
+Do:         add the groundwork
+Done means:
+1. [cap] x (tier: script)
+Evidence: n/a
+
+### Task 2 — Build on the groundwork
+Rests on:   Add the groundwork
+Do:         build on the groundwork
+Done means:
+1. [cap] y (tier: script)
+Evidence: n/a
+
+### Task 3 — An unrelated leaf
+Rests on:   nothing
+Do:         something standalone
+Done means:
+1. [cap] z (tier: script)
+Evidence: n/a
+"""
+
 
 class TestDeriveLoadBearingSet(unittest.TestCase):
     def test_the_rested_on_task_is_load_bearing(self) -> None:
@@ -148,6 +170,21 @@ class TestDeriveLoadBearingSet(unittest.TestCase):
         either way."""
         result = derive_load_bearing_set(NON_LITERAL_REFERENCE_PLAN)
         self.assertNotIn("1", result)
+
+    def test_a_title_only_rests_on_reference_is_load_bearing(self) -> None:
+        """Issue #62: a genuine title-based match path, independent of the
+        `Task N` number-matching regex. Task 2's `Rests on:` line names its
+        dependency by title alone ("Add the groundwork") -- the literal
+        heading label "Task 1" appears nowhere in that line -- and the
+        derivation still marks Task 1 load-bearing. An unrelated leaf
+        (Task 3) stays out of the set, same as the number-match fixture's
+        own leaf check."""
+        task_two_rests_on_line = "Rests on:   Add the groundwork"
+        self.assertIn(task_two_rests_on_line, TITLE_ONLY_MATCH_PLAN)
+        self.assertNotIn("Task 1", task_two_rests_on_line)
+
+        result = derive_load_bearing_set(TITLE_ONLY_MATCH_PLAN)
+        self.assertEqual(result, frozenset({"1"}))
 
 
 if __name__ == "__main__":

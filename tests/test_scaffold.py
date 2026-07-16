@@ -21,8 +21,13 @@ Checks the story's acceptance criteria mechanically:
    guard below covers the full known directory list, not just the
    user-invoked five, so any *unaccounted-for* extra directory still fails
    the build.
-3. `scripts/plan-lint` and `scripts/design-lint` exist, are executable, and
-   exit 0 when run (a stub, not a working linter — see premortem risk #4).
+3. `scripts/plan-lint` and `scripts/design-lint` exist and are executable.
+   `design-lint` is still the M1 stub (M2 hasn't replaced it yet) and exits
+   0 unconditionally, per premortem risk #4. `plan-lint` is no longer a
+   stub as of the plan-lint story (issue #12, M3) — it's a real,
+   deterministic-exit-code linter now, so "exits 0 unconditionally" is no
+   longer one of its acceptance properties; its own behavior is checked by
+   test_plan_lint.py instead.
 """
 from __future__ import annotations
 
@@ -167,22 +172,24 @@ class TestLintScriptStubs(unittest.TestCase):
                     os.access(path, os.X_OK), f"{path} is not executable"
                 )
 
-    def test_plan_lint_and_design_lint_run_clean(self) -> None:
-        for script in ("plan-lint", "design-lint"):
-            with self.subTest(script=script):
-                path = REPO_ROOT / "scripts" / script
-                result = subprocess.run(
-                    [str(path)],
-                    capture_output=True,
-                    text=True,
-                    timeout=10,
-                    check=False,
-                )
-                self.assertEqual(
-                    result.returncode,
-                    0,
-                    f"{path} exited {result.returncode}: {result.stderr}",
-                )
+    def test_design_lint_is_still_the_m1_stub_and_runs_clean(self) -> None:
+        # plan-lint dropped out of this assertion when it stopped being a
+        # stub (issue #12, M3) — a real linter run with no PLAN.md present
+        # correctly reports a usage error (exit 2), not a vacuous PASS; see
+        # test_plan_lint.py for its actual acceptance tests.
+        path = REPO_ROOT / "scripts" / "design-lint"
+        result = subprocess.run(
+            [str(path)],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            check=False,
+        )
+        self.assertEqual(
+            result.returncode,
+            0,
+            f"{path} exited {result.returncode}: {result.stderr}",
+        )
 
 
 if __name__ == "__main__":

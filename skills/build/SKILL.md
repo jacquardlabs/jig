@@ -55,10 +55,19 @@ Do:         ...
 Not here:   ...
 
 Done means:
-1. [cap|hold]  <behavior>                                    (tier: script|test-backed|probe)
+1. [cap|hold]  <behavior text>          (tier: script `scripts/plan-lint`)
+2. [cap|hold]  <behavior text>          (tier: test-backed `tests/test_plan_lint.py`)
+3. [cap|hold]  <behavior text>          (tier: probe)
 ...
 Evidence: ...
 ```
+
+Inside the tier parenthetical: the tier word itself (`script` / `test-backed` /
+`probe` — DESIGN.md's closed enum, no `judgment` tier), and, for `script` /
+`test-backed` items only, a backtick-quoted repo-relative method path
+immediately after it — that path is what you transcribe into `command` at
+Step 2.5. A `probe` item carries no path: there's no pre-existing repo file
+to name for a live-observed artifact.
 
 An optional `Risk:` line (e.g. `Risk: REPLAN-RISK` or `Risk: ESCALATE-RISK`)
 may appear anywhere in the block. No `Risk:` line means `LOW` — see Cadence.

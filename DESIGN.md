@@ -16,7 +16,7 @@ once M2–M6 land real implementations.
 
 | Surface | Framework / tech | Entry point |
 |---------|------------------|-------------|
-| `plugin` | Claude Code plugin (skills + deterministic scripts) | Scaffolded, not yet implemented — `skills/design`, `skills/plan`, `skills/build`, `skills/finish`, and `skills/coach` exist as stub `SKILL.md` files (M1); real behavior lands M2–M6. `scripts/design-lint` and `scripts/plan-lint` are executable stubs that exit 0 unconditionally. |
+| `plugin` | Claude Code plugin (skills + deterministic scripts) | Scaffolded, not yet implemented — `skills/design`, `skills/plan`, `skills/build`, `skills/finish`, and `skills/coach` exist as stub `SKILL.md` files (M1); real behavior lands M2–M6. `scripts/design-lint` is still an executable stub that exits 0 unconditionally. `scripts/plan-lint` is real as of the plan-lint story (issue #12, M3) — a zero-model structural linter with a deterministic 0/1/2 exit code, per this doc's Formatting section above. |
 
 ## Semantic palette
 
@@ -53,6 +53,24 @@ source and this table should be updated to point there.
   first` / `Rests on` / `Do` / `Not here` / `Done means` (numbered cap/hold
   items with a verification tier) / `Evidence`. Every item: ≥1 cap, ≥1 hold,
   ≤5 items total.
+- **The tier parenthetical's own internal shape** (`scripts/plan-lint`, story
+  plan-lint, issue #12): the tier word itself, and, for `script` /
+  `test-backed` items only, a backtick-quoted repo-relative method path
+  immediately after it — a `probe` item carries no path, since there's no
+  pre-existing repo file to name for a live-observed artifact:
+
+  ```
+  Done means:
+  1. [cap|hold]  <behavior text>          (tier: script `scripts/plan-lint`)
+  2. [cap|hold]  <behavior text>          (tier: test-backed `tests/test_plan_lint.py`)
+  3. [cap|hold]  <behavior text>          (tier: probe)
+  ```
+
+  A backtick span anywhere in a checkpoint block (a `Read first:` pointer, a
+  tier's method path, a `[cap]` item's own behavior text on a LOAD-BEARING
+  task) is the plan author's explicit signal that a token is concrete and
+  checkable, not narrative — `scripts/plan-lint` treats prose outside
+  backticks as unchecked by design.
 - **Design doc structure** (handoff §5.1 step 4): 5-8 sections, each tied to
   a named downstream consumer (Intent, Experience, Contracts, Approach,
   Assumptions, Not doing, Risks — see the section→consumer table in §5.1).

@@ -309,6 +309,53 @@ class TestEvidenceCaptureUsageErrors(unittest.TestCase):
             )
             self.assertEqual(result.returncode, 2)
 
+    def test_artifact_label_with_path_traversal_is_rejected(self) -> None:
+        """Mirrors test_task_id_with_path_traversal_is_rejected — issue #51:
+        --task was guarded against '/' and '..', but the parallel --artifact
+        LABEL (joined into the destination filename, then shutil.copy2'd)
+        was only non-empty-checked, letting a crafted label escape the
+        evidence directory."""
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp) / "repo"
+            repo.mkdir()
+            init_repo(repo)
+
+            result = run_script(
+                [
+                    "--task",
+                    "task-1",
+                    "--repo",
+                    str(repo),
+                    "--evidence-root",
+                    str(Path(tmp) / "evidence"),
+                    "--artifact",
+                    "verify:../../pwned=source.txt",
+                ]
+            )
+            self.assertEqual(result.returncode, 2)
+
+    def test_artifact_producer_with_path_traversal_is_rejected(self) -> None:
+        """Same fix, the PRODUCER half of PRODUCER:LABEL=PATH — issue #51
+        asked for both to be guarded, not just LABEL."""
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp) / "repo"
+            repo.mkdir()
+            init_repo(repo)
+
+            result = run_script(
+                [
+                    "--task",
+                    "task-1",
+                    "--repo",
+                    str(repo),
+                    "--evidence-root",
+                    str(Path(tmp) / "evidence"),
+                    "--artifact",
+                    "../../pwned:results=source.txt",
+                ]
+            )
+            self.assertEqual(result.returncode, 2)
+
 
 if __name__ == "__main__":
     sys.exit(unittest.main())

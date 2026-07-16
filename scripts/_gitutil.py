@@ -18,6 +18,13 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
+DEFAULT_TIMEOUT_SECONDS = 600.0
+"""Shared generous default for the --timeout of `worktree-setup`'s baseline
+command and `verify`'s command-tier items (issue #49) -- the same value in
+both, so they don't drift apart. Suites legitimately run minutes; a hung
+command (waiting on stdin, deadlocked, network-bound with no timeout of its
+own) should still be killed well short of hanging a session indefinitely."""
+
 
 def run(cmd: list[str], cwd: Path | None = None) -> subprocess.CompletedProcess[str]:
     """Run a command, capturing output as text, never raising on non-zero exit."""

@@ -1,34 +1,53 @@
 #!/usr/bin/env python3
-"""jig's design-lint script (story design-lint, issue #9).
+"""jig's design-lint script (story design-lint, issue #9; section-name
+schema reconciled to studious's `reference/design-doc-contract.md` at story
+design-lint-reconcile, docs/design/design-lint-reconcile.md).
 
-Mechanically validates a `design-<slug>.md` document against `DESIGN.md`'s
-own "Design doc structure" convention -- 5-8 top-level sections, each drawn
-from a named canonical vocabulary (`Intent`, `Experience`, `Contracts`,
-`Approach`, `Assumptions`, `Not doing`, `Risks`) -- plus four further checks
-this story's acceptance criteria name (docs/design/design-lint.md):
+Mechanically validates a `design-<slug>.md` document against
+`reference/design-doc-contract.md`'s seven required sections -- `Problem &
+persona`, `Proposed design`, `User journey`, `Out of scope`, `Alternatives
+considered`, `Operational readiness`, `Open questions` -- the same seven
+names every real, gate-design-reviewed doc this repo has ever produced
+actually carries (`DESIGN.md`'s own "Design doc structure" line still
+names the ratified handoff's stale seven; see that story's Open questions
+for the follow-up to correct it, out of scope here):
 
-1. Section count (5-8) and vocabulary: every heading matches the canonical
-   list, no duplicates; `Contracts`/`Assumptions`/`Experience` are
-   unconditionally required (checks 2-4 presuppose them); at least two of
-   the four remaining names must also be present to reach the 5-section
-   floor.
-2. `Contracts` is concrete, not prose-only: a fenced code block, a markdown
-   table, or >= `MIN_ARTIFACT_SPANS` distinct artifact-shaped inline-code
-   spans (a filename, an endpoint, a field -- NOT any backtick-quoted
-   filler word; see premortem risk #7).
-3. Every `Assumptions` bullet is checkable: either interview-ruled (tagged
-   with a `(qN)` fork citation -- Check 5 verifies the ruling itself) or
-   tree-checkable (an inline-code span shaped like a file path, optionally
-   `:line` / `:line-line`, resolved against `--repo` at lint time -- never
-   the process's cwd, and never an absolute or `../`-escaping citation;
-   premortem risk #4).
-4. `Experience` names at least one failure path alongside its happy path --
-   a closed, deliberately narrow token vocabulary (premortem risk #3: a
-   real failure phrased without any listed token is a known false
-   negative, not a bug).
+1. Section count and vocabulary: all seven canonical headings present,
+   exactly once each, in any order, no unrecognized top-level heading --
+   a straight `== 7` requirement (the contract draws no required/optional
+   distinction to carry a floor-range check the way the old handoff-based
+   schema did).
+2. `Proposed design` is concrete, not prose-only: a fenced code block, a
+   markdown table, or >= `MIN_ARTIFACT_SPANS` distinct artifact-shaped
+   inline-code spans (a filename, an endpoint, a field -- NOT any
+   backtick-quoted filler word; see premortem risk #7). Remapped from the
+   old schema's `Contracts` -- `design-skill`'s own ratified fork ruling
+   names `Proposed design` as where `Experience`/`Contracts`/`Approach`
+   fold under the contract's names (docs/design/design-lint-reconcile.md).
+3. `Problem & persona`'s core claim (the persona and its problem) is
+   checkable one of three ways: (a) an interview-ruled `(qN)` fork
+   citation (Check 5 verifies the ruling itself), (b) a tree-checkable
+   inline-code path span resolved against `--repo`, or (c) a blockquoted
+   excerpt that is a verbatim substring of `PRODUCT.md`. A blockquote is
+   the section's expected persona-naming shape (both real fixtures use
+   it, and the contract's own text asks for "verbatim, not a paraphrase")
+   -- when one is present it is authoritative: a wrong/fabricated
+   blockquote is not rescued by an unrelated real path or fork tag
+   elsewhere in the section (premortem risk #1). Only a section with no
+   blockquote at all falls back to buckets (a)/(b). Remapped from the old
+   schema's `Assumptions` -- the contract's own "what good looks like" for
+   `Problem & persona` ("verbatim, not a paraphrase invented for this
+   doc") restates Check 3's founding "don't trust prose, check it"
+   principle, narrowed to `PRODUCT.md` specifically.
+4. `User journey` names at least one failure path alongside its happy
+   path -- a closed, deliberately narrow token vocabulary (premortem risk
+   #3: a real failure phrased without any listed token is a known false
+   negative, not a bug). A direct rename of the old schema's `Experience`
+   -- same semantic, same mechanism.
 5. Every distinct `(qN)` fork citation, scanned across the whole document,
    has a ruling-shaped clause (closed ruling-verb vocabulary) in the same
-   sentence or bullet as at least one of its occurrences.
+   sentence or bullet as at least one of its occurrences. Section-name
+   agnostic; untouched by this remap.
 
 A trailing `## Revision History` section is excluded from every check.
 Parsing splits on `## ` headings alone, never on a `---` divider, so an
@@ -49,24 +68,29 @@ from dataclasses import dataclass
 from itertools import pairwise
 from pathlib import Path
 
-# The only canonical section vocabulary this repo has committed to
-# (DESIGN.md's "Design doc structure" line). Checks 2-4 each presuppose one
-# of Contracts/Assumptions/Experience exists, so those three are
-# unconditionally required; the remaining four fill out the 5-8 range, with
-# at least MIN_OPTIONAL_FOR_FLOOR of them present to reach the 5-section
-# floor (docs/design/design-lint.md, Check 1).
-REQUIRED_SECTIONS = ("Contracts", "Assumptions", "Experience")
-OPTIONAL_SECTIONS = ("Intent", "Approach", "Not doing", "Risks")
-CANONICAL_SECTIONS = REQUIRED_SECTIONS + OPTIONAL_SECTIONS
-MIN_SECTIONS = 5
-MAX_SECTIONS = 8
-MIN_OPTIONAL_FOR_FLOOR = 2
+# The canonical section vocabulary this repo's design docs actually use --
+# studious's reference/design-doc-contract.md's seven required sections
+# (docs/design/design-lint-reconcile.md). The contract draws no
+# required/optional distinction (its table is titled "Required sections",
+# seven rows, none marked optional, no stated count range), so neither does
+# this check: all seven are unconditionally required, exactly once each.
+CANONICAL_SECTIONS = (
+    "Problem & persona",
+    "Proposed design",
+    "User journey",
+    "Out of scope",
+    "Alternatives considered",
+    "Operational readiness",
+    "Open questions",
+)
 
 # Check 2's concreteness floor: the minimum number of distinct
-# artifact-shaped inline-code spans a prose Contracts section needs to
-# count as "concrete, not prose-only" when it carries neither a fenced code
-# block nor a markdown table. A build-phase constant per the design doc's
-# own non-requirements clause.
+# artifact-shaped inline-code spans a prose Proposed design section needs
+# to count as "concrete, not prose-only" when it carries neither a fenced
+# code block nor a markdown table. A build-phase constant per the design
+# doc's own non-requirements clause; unchanged by the Contracts ->
+# Proposed design remap (docs/design/design-lint-reconcile.md, Open
+# questions).
 MIN_ARTIFACT_SPANS = 3
 
 # Check 4's failure-path vocabulary -- deliberately narrow (design doc:
@@ -101,6 +125,9 @@ PATH_SPAN_RE = re.compile(r"^(?P<path>[\w./-]+)(?::(?P<line>\d+(?:-\d+)?))?$")
 
 HEADING_RE = re.compile(r"^##\s+(.+?)\s*$", re.MULTILINE)
 BULLET_START_RE = re.compile(r"^(?:[-*]|\d+\.)\s+")
+# A markdown blockquote line, e.g. "> A developer using Claude Code..."
+# (Check 3, bucket c).
+BLOCKQUOTE_LINE_RE = re.compile(r"^>\s?(.*)$")
 
 
 @dataclass
@@ -212,8 +239,8 @@ def check_1_section_vocabulary(sections: list[Section]) -> list[str]:
         canonical = _CANONICAL_BY_NORM.get(norm)
         if canonical is None:
             violations.append(
-                f"section '{s.heading}' does not match jig's canonical section "
-                "vocabulary — see DESIGN.md's Design doc structure"
+                f"section '{s.heading}' does not match design-doc-contract.md's "
+                "seven required section names"
             )
         elif norm in present:
             violations.append(f"duplicate section '{canonical}' (appears more than once)")
@@ -221,24 +248,18 @@ def check_1_section_vocabulary(sections: list[Section]) -> list[str]:
             present[norm] = canonical
 
     count = len(sections)
-    if not (MIN_SECTIONS <= count <= MAX_SECTIONS):
-        violations.append(f"{count} top-level sections found; DESIGN.md requires 5-8")
+    if count != len(CANONICAL_SECTIONS):
+        violations.append(
+            f"{count} top-level sections found; design-doc-contract.md requires "
+            f"exactly {len(CANONICAL_SECTIONS)}"
+        )
 
     present_names = set(present.values())
     violations.extend(
-        f"missing required section '{name}' (Checks 2-4 presuppose it exists)"
-        for name in REQUIRED_SECTIONS
+        f"missing required section '{name}'"
+        for name in CANONICAL_SECTIONS
         if name not in present_names
     )
-
-    optional_present = [name for name in OPTIONAL_SECTIONS if name in present_names]
-    if len(optional_present) < MIN_OPTIONAL_FOR_FLOOR:
-        missing = [n for n in OPTIONAL_SECTIONS if n not in present_names]
-        violations.append(
-            f"only {len(optional_present)} of {list(OPTIONAL_SECTIONS)} present; "
-            f"at least {MIN_OPTIONAL_FOR_FLOOR} are required to reach the "
-            f"5-section floor (missing: {', '.join(missing)})"
-        )
 
     return violations
 
@@ -258,8 +279,8 @@ def _has_markdown_table(body: str) -> bool:
     )
 
 
-def check_2_contracts_concrete(sections: list[Section]) -> list[str]:
-    section = find_section(sections, "Contracts")
+def check_2_proposed_design_concrete(sections: list[Section]) -> list[str]:
+    section = find_section(sections, "Proposed design")
     if section is None:
         return []  # Check 1 already names the missing required section
 
@@ -273,8 +294,8 @@ def check_2_contracts_concrete(sections: list[Section]) -> list[str]:
         return []
 
     return [
-        "section 'Contracts' has no concrete shape markers — no fenced code "
-        f"block, no markdown table, and only {len(artifact_spans)} "
+        "section 'Proposed design' has no concrete shape markers — no fenced "
+        f"code block, no markdown table, and only {len(artifact_spans)} "
         f"artifact-shaped inline-code span(s) (need >= {MIN_ARTIFACT_SPANS})"
     ]
 
@@ -300,37 +321,90 @@ def _resolves_in_repo(path_str: str, repo_root: Path) -> bool:
     return candidate.is_file()
 
 
-def check_3_assumptions_checkable(sections: list[Section], repo_root: Path) -> list[str]:
-    section = find_section(sections, "Assumptions")
+def _extract_blockquotes(body: str) -> list[str]:
+    """Group `body`'s lines into contiguous markdown blockquotes (`>`-prefixed
+    lines), each joined into one string. A section can carry more than one;
+    any one of them matching PRODUCT.md verbatim is enough (Check 3, bucket
+    c)."""
+    blockquotes: list[str] = []
+    current: list[str] = []
+    for line in body.splitlines():
+        m = BLOCKQUOTE_LINE_RE.match(line)
+        if m:
+            current.append(m.group(1))
+        elif current:
+            blockquotes.append(" ".join(current))
+            current = []
+    if current:
+        blockquotes.append(" ".join(current))
+    return blockquotes
+
+
+def _normalize_ws(text: str) -> str:
+    """Whitespace-only normalization -- unlike `_normalize` (used for
+    case-insensitive heading matching), a verbatim-quote check must stay
+    case-sensitive: the contract asks for "verbatim, not a paraphrase," and
+    a case change is still not a verbatim match."""
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def _read_product_md(repo_root: Path) -> str | None:
+    try:
+        return (repo_root / "PRODUCT.md").read_text(encoding="utf-8")
+    except OSError:
+        return None
+
+
+def check_3_persona_checkable(sections: list[Section], repo_root: Path) -> list[str]:
+    section = find_section(sections, "Problem & persona")
     if section is None:
         return []  # Check 1 already names the missing required section
 
-    violations: list[str] = []
-    for bullet in split_bullets(section.body):
-        if FORK_TAG_RE.search(bullet):
-            continue  # interview-ruled; Check 5 verifies the ruling itself
+    body = section.body
 
-        path_spans = [p for span in INLINE_CODE_RE.findall(bullet) if (p := _looks_like_path(span))]
-        if not path_spans:
-            violations.append(
-                "assumption bullet is neither interview-ruled (no '(qN)' tag) "
-                f"nor tree-checkable (no file-path-shaped inline-code span): "
-                f"{_bullet_label(bullet)!r}"
-            )
-            continue
+    # Bucket (c): a blockquote is the section's expected persona-naming
+    # shape (both real fixtures use it; the contract's own text asks for
+    # "verbatim, not a paraphrase"). When present it is authoritative -- a
+    # wrong/fabricated blockquote is not rescued by an unrelated real path
+    # or fork tag elsewhere in the section (premortem risk #1); only a
+    # section with no blockquote at all falls through to buckets (a)/(b).
+    blockquotes = _extract_blockquotes(body)
+    if blockquotes:
+        product_text = _read_product_md(repo_root)
+        haystack = _normalize_ws(product_text) if product_text is not None else ""
+        if any(_normalize_ws(bq) in haystack for bq in blockquotes if _normalize_ws(bq)):
+            return []
+        return [
+            "section 'Problem & persona' has a blockquoted persona claim that "
+            "is not a verbatim substring of PRODUCT.md"
+        ]
 
-        unresolved = [p for p in path_spans if not _resolves_in_repo(p, repo_root)]
-        if unresolved:
-            violations.append(
-                f"assumption bullet cites a path that does not exist in the "
-                f"tree ({', '.join(unresolved)}): {_bullet_label(bullet)!r}"
-            )
+    # Bucket (a): interview-ruled forward reference; Check 5 verifies the
+    # ruling itself.
+    if FORK_TAG_RE.search(body):
+        return []
 
-    return violations
+    # Bucket (b): a tree-checkable inline-code path citation.
+    path_spans = [p for span in INLINE_CODE_RE.findall(body) if (p := _looks_like_path(span))]
+    if any(_resolves_in_repo(p, repo_root) for p in path_spans):
+        return []
+
+    if path_spans:
+        return [
+            "section 'Problem & persona' cites only path(s) that do not exist "
+            f"in the tree ({', '.join(path_spans)}) and carries no "
+            "PRODUCT.md-verbatim blockquote or interview-ruling '(qN)' tag"
+        ]
+
+    return [
+        "section 'Problem & persona' asserts a persona/problem claim with no "
+        "checkable grounding — no PRODUCT.md-verbatim blockquote, no "
+        "tree-checkable path citation, and no interview-ruling '(qN)' tag"
+    ]
 
 
-def check_4_experience_failure_path(sections: list[Section]) -> list[str]:
-    section = find_section(sections, "Experience")
+def check_4_user_journey_failure_path(sections: list[Section]) -> list[str]:
+    section = find_section(sections, "User journey")
     if section is None:
         return []  # Check 1 already names the missing required section
 
@@ -338,16 +412,17 @@ def check_4_experience_failure_path(sections: list[Section]) -> list[str]:
         return []
 
     return [
-        "section 'Experience' has no failure-path language (expected e.g. "
+        "section 'User journey' has no failure-path language (expected e.g. "
         "'fails', 'error', 'stops', 'refuses', 'not installed', "
         "'unavailable', or a 'Failure' sub-heading)"
     ]
 
 
 def check_5_fork_rulings(sections: list[Section]) -> list[str]:
-    # Scans the whole document -- forks are referenced across Intent,
-    # Contracts, Assumptions, and Not doing alike in the one real precedent
-    # available (docs/design/design-lint.md, Check 5).
+    # Scans the whole document -- section-name agnostic already (forks are
+    # referenced across whichever sections carry them), so the
+    # design-lint-reconcile remap leaves this check untouched
+    # (docs/design/design-lint-reconcile.md, Out of scope).
     units: list[str] = []
     for s in sections:
         units.extend(split_bullets(s.body))
@@ -380,9 +455,9 @@ def run_checks(text: str, repo_root: Path) -> list[CheckResult]:
     sections = parse_sections(text)
     return [
         CheckResult("section count and vocabulary", check_1_section_vocabulary(sections)),
-        CheckResult("Contracts concreteness", check_2_contracts_concrete(sections)),
-        CheckResult("Assumptions checkability", check_3_assumptions_checkable(sections, repo_root)),
-        CheckResult("Experience failure path", check_4_experience_failure_path(sections)),
+        CheckResult("Proposed design concreteness", check_2_proposed_design_concrete(sections)),
+        CheckResult("Problem & persona checkability", check_3_persona_checkable(sections, repo_root)),
+        CheckResult("User journey failure path", check_4_user_journey_failure_path(sections)),
         CheckResult("fork rulings", check_5_fork_rulings(sections)),
     ]
 
@@ -390,13 +465,20 @@ def run_checks(text: str, repo_root: Path) -> list[CheckResult]:
 def parse_args(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         prog="design-lint",
-        description="Mechanically validate a design-<slug>.md doc against DESIGN.md's Design doc structure.",
+        description=(
+            "Mechanically validate a design-<slug>.md doc against "
+            "design-doc-contract.md's seven required sections."
+        ),
     )
     parser.add_argument("--doc", required=True, help="path to the design-<slug>.md file to lint")
     parser.add_argument(
         "--repo",
         default=".",
-        help="repo root Assumptions-section path citations are resolved against (default: cwd)",
+        help=(
+            "repo root Problem & persona's path citations are resolved "
+            "against, and PRODUCT.md's persona blockquote is read from "
+            "(default: cwd)"
+        ),
     )
     return parser.parse_args(argv)
 

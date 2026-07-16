@@ -73,9 +73,9 @@ source and this table should be updated to point there.
   backticks as unchecked by design.
 - **Design doc structure** (`reference/design-doc-contract.md`, ratified by
   story `design-skill`/issue #8's own design doc, Proposed design → Step 4
-  fork): 5-8 sections, each tied to a named downstream consumer (Problem &
-  persona, Proposed design, User journey, Out of scope, Alternatives
-  considered, Operational readiness, Open questions — see
+  fork): exactly 7 sections, each tied to a named downstream consumer
+  (Problem & persona, Proposed design, User journey, Out of scope,
+  Alternatives considered, Operational readiness, Open questions — see
   `skills/design/SKILL.md` Step 4 for the section→consumer table). This
   supersedes the handoff §5.1 step 4 wording this bullet previously carried
   (Intent, Experience, Contracts, Approach, Assumptions, Not doing, Risks):

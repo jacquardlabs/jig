@@ -47,7 +47,12 @@ for the follow-up to correct it, out of scope here):
 5. Every distinct `(qN)` fork citation, scanned across the whole document,
    has a ruling-shaped clause (closed ruling-verb vocabulary) in the same
    sentence or bullet as at least one of its occurrences. Section-name
-   agnostic; untouched by this remap.
+   agnostic; untouched by this remap. A second, independent sub-check
+   covers the table-shaped fork convention real `/design` output actually
+   uses (SKILL.md Step 4): a section with a lettered-options table (>= 2
+   rows) must also carry a `(recommended): <letter>` marker somewhere in
+   that same section -- `(qN)` tags never appear in a real shipped doc, so
+   this sub-check is what actually exercises Check 5 against real input.
 
 A trailing `## Revision History` section is excluded from every check.
 Parsing splits on `## ` headings alone, never on a `---` divider, so an
@@ -112,6 +117,24 @@ RULING_VERB_RE = re.compile(
     re.IGNORECASE,
 )
 FORK_TAG_RE = re.compile(r"\(q(\d+)\)", re.IGNORECASE)
+
+# The second, table-shaped fork convention real /design output actually uses
+# (SKILL.md Step 4: "recommended option marked **(recommended): <letter>.**")
+# -- unrelated to viva's own `(qN)` interview-citation tags, and the reason
+# Check 5 was vacuous against every real shipped doc (none of them carry a
+# `(qN)` tag at all; see design-lint-reconcile's Open questions). A table row
+# whose first cell is a single capital letter followed by whitespace, a dash,
+# or end-of-cell is an option row ("| B | ... |", "| B — Some option | ... |")
+# -- deliberately narrow so an ordinary header cell ("| Field | Value |")
+# can't false-positive (only a *single* letter matches, not a whole word).
+OPTION_ROW_RE = re.compile(r"^\|\s*([A-Z])(?:\s|$|—|-)", re.MULTILINE)
+# Loose on formatting (bold markers, trailing punctuation) -- the signal is
+# the parenthetical + letter, not the surrounding markdown emphasis.
+RECOMMENDED_MARKER_RE = re.compile(r"\(recommended\)\s*:\s*[A-Za-z0-9]", re.IGNORECASE)
+# Below this many distinct lettered rows, a table is more likely an
+# unrelated one-row table than a genuine 2-3-option fork (SKILL.md Step 4:
+# "2-3 options") -- avoids flagging incidental single-letter-led rows.
+MIN_OPTION_ROWS_FOR_FORK = 2
 
 INLINE_CODE_RE = re.compile(r"`([^`\n]+)`")
 # Excludes plain-English filler like `maybe`/`later` from counting as a
@@ -437,12 +460,31 @@ def check_5_fork_rulings(sections: list[Section]) -> list[str]:
         for tag in tags:
             ruled[tag] = ruled.get(tag, False) or has_ruling
 
-    return [
+    violations = [
         f"fork q{tag} has no recorded ruling (no ruling-shaped clause found "
         "in the same sentence or bullet as any of its '(qN)' citations)"
         for tag in sorted(ruled, key=int)
         if not ruled[tag]
     ]
+
+    # The second fork convention real /design output actually uses: a
+    # lettered-options table with the ruling recorded as a `(recommended):
+    # <letter>` marker, not a `(qN)` tag (see OPTION_ROW_RE's own comment).
+    # Per-section, not whole-document -- a real fork's options table and its
+    # recommendation line live in the same section every shipped doc has
+    # used so far.
+    for s in sections:
+        option_rows = OPTION_ROW_RE.findall(s.body)
+        if len(option_rows) < MIN_OPTION_ROWS_FOR_FORK:
+            continue
+        if RECOMMENDED_MARKER_RE.search(s.body):
+            continue
+        violations.append(
+            f"section '{s.heading}' has an options table ({len(option_rows)} "
+            "lettered rows) with no '(recommended): <letter>' ruling found"
+        )
+
+    return violations
 
 
 @dataclass

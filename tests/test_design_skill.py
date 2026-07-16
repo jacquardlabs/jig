@@ -205,8 +205,8 @@ class TestDesignSkillBody(unittest.TestCase):
     def test_draft_path_is_docs_design_slug(self) -> None:
         self.assertIn("docs/design/<slug>.md", self.body)
 
-    def test_draft_names_5_to_8_sections_with_named_consumer(self) -> None:
-        self.assertPhraseIn("5-8 sections, each with a named consumer")
+    def test_draft_names_exactly_7_sections_with_named_consumer(self) -> None:
+        self.assertPhraseIn("Exactly 7 sections, each with a named consumer")
 
     def test_draft_uses_contract_canonical_section_headings(self) -> None:
         for section in (

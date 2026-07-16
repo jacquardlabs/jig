@@ -306,6 +306,29 @@ class TestDesignLintCheck2ProposedDesignConcrete(unittest.TestCase):
             self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
             self.assertIn("section 'Proposed design' has no concrete shape markers", result.stdout)
 
+    def test_markdown_table_counts_as_concrete(self) -> None:
+        """`_has_markdown_table` is one of two shape markers that short-circuit
+        Check 2 before the artifact-span count is even considered (the other
+        being a fenced code block) — this table carries no fence and no
+        inline-code spans at all, so a clean pass here is only explainable by
+        the table branch, not the span-counting fallback."""
+        self.assertIn(PROPOSED_DESIGN_CONCRETE_BLOCK, CLEAN_DOC)
+        table_only = (
+            "| Approach | Session storage |\n"
+            "| --- | --- |\n"
+            "| Chosen | Filesystem-backed handoff payload |\n\n"
+        )
+        doc_text = CLEAN_DOC.replace(PROPOSED_DESIGN_CONCRETE_BLOCK, table_only)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            repo = _write_repo_with_server(tmp_path)
+            doc = _write_doc(tmp_path, doc_text)
+
+            result = run_script(doc, repo)
+
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
 
 class TestDesignLintProposedDesignArtifactSpanThreshold(unittest.TestCase):
     """Premortem risk #6 (design-lint.md): pins the exact MIN_ARTIFACT_SPANS
@@ -606,6 +629,61 @@ class TestDesignLintCheck5ForkRulings(unittest.TestCase):
 
             self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
             self.assertIn("fork q1 has no recorded ruling", result.stdout)
+
+    def test_unresolved_options_table_fork_is_named(self) -> None:
+        """Real /design output never carries a `(qN)` tag (docs/design/
+        design-lint-reconcile.md's Open questions) -- its fork convention is
+        a lettered-options table plus a `(recommended): <letter>` marker
+        (SKILL.md Step 4). A table with 2+ lettered rows and no marker
+        anywhere in the same section must be named, the same way an
+        unruled `(qN)` tag is."""
+        open_questions_body = (
+            "- Whether the handoff step should also close on `SIGTERM`, or only on the\n"
+            "  explicit `/complete` call — undecided, tracked for a later round.\n"
+        )
+        self.assertIn(open_questions_body, CLEAN_DOC)
+        unresolved_table = open_questions_body + (
+            "\n| A — Close on SIGTERM | Matches other daemons | Loses in-flight state |\n"
+            "| B — Close only on /complete | Symmetric with the happy path | Leaves SIGTERM undefined |\n"
+        )
+        doc_text = CLEAN_DOC.replace(open_questions_body, unresolved_table)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            repo = _write_repo_with_server(tmp_path)
+            doc = _write_doc(tmp_path, doc_text)
+
+            result = run_script(doc, repo)
+
+            self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+            self.assertIn("section 'Open questions' has an options table", result.stdout)
+            self.assertIn("no '(recommended): <letter>' ruling found", result.stdout)
+
+    def test_options_table_fork_with_recommendation_marker_passes(self) -> None:
+        """The same table as above, but with the actual `(recommended):
+        <letter>` marker real /design output uses -- must pass clean, not
+        just avoid a false positive on some other check."""
+        open_questions_body = (
+            "- Whether the handoff step should also close on `SIGTERM`, or only on the\n"
+            "  explicit `/complete` call — undecided, tracked for a later round.\n"
+        )
+        self.assertIn(open_questions_body, CLEAN_DOC)
+        resolved_table = open_questions_body + (
+            "\n| A — Close on SIGTERM | Matches other daemons | Loses in-flight state |\n"
+            "| B — Close only on /complete | Symmetric with the happy path | Leaves SIGTERM undefined |\n"
+            "\n**(recommended): B.** Symmetric with the happy path already documented above.\n"
+        )
+        doc_text = CLEAN_DOC.replace(open_questions_body, resolved_table)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            repo = _write_repo_with_server(tmp_path)
+            doc = _write_doc(tmp_path, doc_text)
+
+            result = run_script(doc, repo)
+
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertIn("clean pass", result.stdout)
 
 
 class TestDesignLintRevisionHistoryAndDividers(unittest.TestCase):

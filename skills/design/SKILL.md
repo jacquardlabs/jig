@@ -110,13 +110,14 @@ option, not why.
 Written to `docs/design/<slug>.md` -- the same path and one-file-per-story
 naming every prior design doc in this project already uses.
 
-**5-8 sections, each with a named consumer.** Use `design-doc-contract.md`'s
+**Exactly 7 sections, each with a named consumer.** Use `design-doc-contract.md`'s
 seven section names -- the contract-canonical convention, matching
 `DESIGN.md`'s own "Design doc structure" line (reconciled to these same
-seven names, no longer the stale handoff-literal set) -- because every
-design doc this project has actually shipped and gate-reviewed uses these
-seven, and only these seven give `Operational readiness` an unambiguous
-home:
+seven names, no longer the stale handoff-literal set, nor its old "5-8"
+range now that design-lint enforces exactly 7 with no optional tier) --
+because every design doc this project has actually shipped and
+gate-reviewed uses these seven, and only these seven give
+`Operational readiness` an unambiguous home:
 
 1. **Problem & persona** -- Consumer: the human deciding to fund the work;
    product-reviewer Q1.

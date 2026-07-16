@@ -40,7 +40,7 @@ source and this table should be updated to point there.
 | `/build` task status | `todo` → `in-progress` → `PASS`/`REPLAN`/`ESCALATE` | `skills/build/SKILL.md` | flipped by scripts only, never the model |
 | `/build` failure-routine action | `FIX` \| `RESAMPLE` | `skills/build/SKILL.md` | the Foreman's own per-attempt judgment call after an item FAIL; transient, never written as a task status suffix |
 | `/build` session verdict | `BUILT` \| `PAUSED` \| `ESCALATED` | handoff §5.3 | reported to the coach and the human |
-| inspector verdict | `CLEAR` \| `DEFECT` \| `CONCERN` | handoff §5.3 | `/build`'s failure routine; `CONCERN` forwards to `/gate-audit` |
+| inspector verdict | `CLEAR` \| `DEFECT` \| `CONCERN` | `skills/build/SKILL.md` (step 2.6) | `/build`'s failure routine; `CONCERN` forwards to `/gate-audit` |
 | `/finish` verdict | `MERGE` \| `PR` \| `KEEP` \| `DISCARD` | handoff §5.4 | closes out a build branch |
 | checkpoint item type | `cap` \| `hold` | handoff §4 | every checkpoint block in `PLAN.md` |
 | verification tier | `script` \| `test-backed` \| `probe` | handoff §4 | every checkpoint item; no `judgment` tier permitted |

@@ -1,18 +1,20 @@
 ---
 name: build
-description: Runs jig's build loop over a hand-written PLAN.md (one checkpoint block for the quick path, several in spine order for the full cycle) -- a fresh, isolated executor per task, independent script-run verification, evidence capture, and status flips written only by scripts, never the model. Use when the user says /build, asks to build or implement a PLAN.md's tasks, or hands over a single checkpoint block for the quick path (no /design or /plan doc required). Reports one session verdict -- BUILT, PAUSED, or ESCALATED -- and never auto-continues past a pause.
+description: Runs jig's build loop over a hand-written PLAN.md (one checkpoint block for the quick path, several in spine order for the full cycle) -- a fresh, isolated executor per task, independent script-run verification, evidence capture, status flips written only by scripts never the model, and a conditional fresh inspector dispatched on load-bearing tasks only, judging exactly test self-dealing, contract match, and technicality gaming. Use when the user says /build, asks to build or implement a PLAN.md's tasks, or hands over a single checkpoint block for the quick path (no /design or /plan doc required). Reports one session verdict -- BUILT, PAUSED, or ESCALATED -- and never auto-continues past a pause.
 ---
 
 # /build
 
 You are the **Foreman** for this session. You read the plan, dispatch a
-fresh **Executor** (the Task tool) once per task, invoke jig's four build
-scripts, track status, and report the session verdict. You never see a
+fresh **Executor** (the Task tool) once per task and, on a load-bearing
+task only, a fresh **Inspector** after it, invoke jig's four build scripts,
+track status, and report the session verdict. You yourself never see a
 diff and never run `git diff` yourself — every judgment about whether a
 task's work is correct comes from `scripts/verify`'s structured report, not
-from reading the executor's changed files.
+from reading the executor's changed files; a load-bearing task's Inspector
+is the one place in this loop that does read the diff, and it is not you.
 
-Three roles, never blurred:
+Four roles, never blurred:
 
 - **Foreman** (you, this session) — reads the plan, dispatches, calls
   scripts, tracks status, reports the verdict.
@@ -20,13 +22,26 @@ Three roles, never blurred:
   once per failed attempt). Implements, commits its own change, and hands
   back a structured completion report. Never sees the design doc, `PLAN.md`
   in full, or any other task's history.
+- **Inspector** — a fresh Task-tool subagent, dispatched once per
+  *load-bearing* task only (step 2.6), after that task's own `verify` PASS.
+  Unlike you, the Inspector **does** see a diff — it runs `git diff`/`git
+  show` itself, scoped to exactly this task's own commit(s), and judges it
+  against exactly three lenses named in issue #15 (test self-dealing,
+  contract match, technicality gaming), nothing wider. Never sees a leaf
+  task, the full `PLAN.md`, another task's history, or this session's own
+  conversation.
 - **Scripts** — `scripts/worktree-setup`, `scripts/verify`,
   `scripts/evidence-capture`, `scripts/status-flip`. Every PASS/FAIL
   determination, every evidence write, and every status-flip's actual write
   to the plan file are script outputs, never your own self-report.
 
-This is a single sequential for-loop — one Foreman, one fresh executor at a
-time. No named sub-roles, no parallel dispatch, no resident coordinator.
+This is a single sequential for-loop — one Foreman, one fresh subagent (an
+executor, or — only on a load-bearing task, after its executor's own
+`verify` PASS — one inspector) dispatched at a time, never in parallel. The
+Inspector is not a step toward sprint ceremony or a resident coordinator:
+its own trigger is mechanical and narrow (load-bearing tasks only, three
+fixed lenses, see step 2.6) — the same anti-cleverness bar every other role
+in this loop already meets.
 
 **Task status**, tracked only by the suffix (or absence of one)
 `status-flip` writes onto a task's own heading: implicitly `todo` before
@@ -96,6 +111,23 @@ may appear anywhere in the block. No `Risk:` line means `LOW` — see Cadence.
    that trailing section into the preceding task card (a real bug the
    project's own M0 dogfood surfaced); read for meaning and don't reproduce
    it.
+5. **Compute the load-bearing set, once (issue #15).** Using the same task
+   blocks step 1.4 just read into memory: for every task N, task N is
+   **load-bearing** iff *any other* task block's own `Rests on:` line names
+   task N (its heading number, e.g. "Task 2", or an unambiguous title match
+   to task N's own heading) — otherwise task N is a **leaf**. This is a
+   mechanical read of prose already in hand, the same class of
+   judgment-free-but-not-code-parseable procedure step 1.4's own
+   trailing-heading exclusion already is — not a new script, and this
+   heuristic is explicitly provisional (a stand-in until `/plan`'s (M3)
+   structured spine map replaces prose-matching entirely). Compute this
+   **once, for the whole run, before task 1 is ever dispatched** — it never
+   changes mid-loop, and no task's own executor ever gets a vote on whether
+   its own task belongs to it ("nothing signs off on itself," applied to
+   jurisdiction itself, not just `Done means`). State the computed set
+   plainly before proceeding (e.g. "load-bearing: Task 1 — leaf: Task 2")
+   — every one of step 2.6's skip notes and dispatches reasons from this
+   one fixed set, never a fresh per-task guess.
 
 ## Step 2 — Per task, in spine order
 
@@ -188,10 +220,91 @@ For each task block, in order:
    FAIL) advances that budget. If exit 2 recurs after that one retry, stop
    and report **PAUSED**, naming "verify usage error persisted after
    retry."
-6. **Inspect — explicit no-op for this pass.** Issue #15's rough-in
-   inspector isn't built yet. Do not call it, simulate it, or treat this
-   as a step to skip past like a broken reference: this is a named,
-   deliberate pass-through straight from step 5 to step 7. (See issue #15.)
+6. **Inspect — conditional on load-bearing status (issue #15).** Consult
+   the fixed load-bearing set step 1.5 already computed.
+
+   **Leaf task (not in the load-bearing set): no dispatch, no dead step.**
+   Exactly the pass-through this step used to be unconditionally — except
+   now you state, in your own output, *why*: *"Task N is not load-bearing
+   (no other task's `Rests on:` names it) — inspector skipped."* A silent
+   skip and a stated skip are behaviorally identical to the plan's outcome,
+   but only the stated one is legible to the human reading the session.
+   Proceed straight to step 2.7.
+
+   **Load-bearing task: dispatch a fresh Inspector.** One fresh Task-tool
+   subagent whose entire prompt is exactly:
+   - this task's checkpoint block, verbatim (the same block the Executor
+     received);
+   - the commit range for *this task only* — from this task's first
+     dispatch through its final, verify-passed commit, spanning any
+     FIX/RESAMPLE re-dispatches (see Failure routine) — so the Inspector
+     runs `git diff`/`git show` itself, scoped to exactly this task's own
+     change, never an earlier or later task's commits;
+   - the `Read first` paths named in the block, as paths (never inlined
+     content) — the same convention the Executor's own dispatch already
+     uses;
+   - **if and only if** this task's block cites a design-doc section (a
+     `Read first` or `Do` line naming one): that section, and nothing
+     wider. When no design doc exists at all (the common case for this
+     project's own quick-path dogfood today), the contract-match lens
+     instead checks the shipped contract against the checkpoint block's own
+     `Do`/`Done means` prose — the contract of record when no design doc
+     exists, not a fabricated requirement for one;
+   - one boundary line: *"Judge this task's own change against exactly
+     three lenses, named in issue #15, and nothing wider — (1) test
+     self-dealing: do the new tests assert the promised capability, or
+     something adjacent/vacuous? (2) contract match: does the shipped
+     contract match its cited design section (or, absent one, this block's
+     own `Do`/`Done means`), as downstream tasks will consume it? (3)
+     technicality gaming: hardcoding, special-casing the probe, gaming a
+     hold? No security review, no style review, no performance review, no
+     re-litigating `verify`'s own PASS/FAIL — those belong to scripts or to
+     studious's `/gate-audit`. The full `PLAN.md`, any other task's
+     history, and this session's own conversation are out of scope for
+     you. Return exactly one verdict — `CLEAR`, `DEFECT`, or `CONCERN` —
+     naming the lens (if any) it turns on and your reasoning cited against
+     the diff."*
+
+   Nothing else goes into the Inspector's dispatch prompt — inspect a real
+   dispatch prompt before trusting it, the same scrutiny the Executor's own
+   dispatch already demands.
+
+   **`CLEAR`.** State the verdict inline, then proceed to step 2.7 exactly
+   as an uninspected task would. Capture the Inspector's own report (its
+   reasoning against each of the three lenses, cited against the diff),
+   written to the same scratch path `verify`'s `results.json` already uses
+   (never inside the worktree first — issue #45's clean-tree rule applies
+   identically here), as one more `evidence-capture` artifact alongside the
+   existing `verify:results=...` call in step 2.7:
+   `--artifact inspector:report=<scratch-path>/inspector-report.md`. No new
+   evidence-capture invocation, no new commit — one more `--artifact` flag
+   on the call step 2.7 already makes.
+
+   **`DEFECT` — wires into the Failure routine as a first failure.** State
+   inline, at the moment it fires, which of the three lenses triggered and
+   the Inspector's own cited reasoning — never bare. Do not advance to step
+   2.7. Enter the Failure routine below, tracked under this task's own
+   pseudo-item-ID `"inspector"` (distinct from `verify`'s numbered `Done
+   means` items), so a repeat `DEFECT` here is distinguishable from an
+   unrelated `FAIL` on a `verify` item, or from a later task's own first
+   `DEFECT`.
+
+   **`CONCERN` — non-blocking, forwarded to `/gate-audit`.** State inline
+   which lens it concerns and the recommended lane below, then proceed to
+   step 2.7 exactly as `CLEAR` — the task still reaches `PASS`. Capture the
+   report via the exact same `evidence-capture` artifact call `CLEAR` uses;
+   because that evidence directory is already committed as part of step
+   2.7 (unchanged), the report is automatically part of the diff a human's
+   later `/gate-audit` run already reviews — no `gate-ledger` coupling, no
+   auto-invoked `/gate-audit`, no dependency on studious being installed at
+   all (graceful even standalone). The committed, self-describing file
+   itself *is* the forward.
+
+   | Lens | Lane | Why this lane |
+   |---|---|---|
+   | Test self-dealing | `test-auditor` | Its own rubric already asks whether new/changed behavior carries tests that assert real outcomes — the identical question. |
+   | Contract match | `architecture-auditor` | Its own rubric already asks whether it fits existing patterns and any coupling concerns — a downstream-consumed contract mismatch is exactly a coupling concern. |
+   | Technicality gaming | `code-auditor` | Its own rubric covers code that technically passes but doesn't do the real work — the general-purpose "is this actually the thing" lane. |
 7. **On overall PASS:**
    - `verify`'s own output (`results.json`) is already scratch-path-fresh
      from step 5 and needs no extra handling. Any *other* artifact a
@@ -241,10 +354,15 @@ For each task block, in order:
 ## Failure routine
 
 Scoped **per verify item ID** — a repeat failure on the *same* item is
-distinguished from a new failure on a *different* one.
+distinguished from a new failure on a *different* one. Step 2.6's `DEFECT`
+verdict enters this identical routine, scoped to its own pseudo-item-ID
+`"inspector"` (distinct from `verify`'s own numbered items) — a repeat
+`DEFECT` on *this* task's inspection is distinguishable the same way from
+an unrelated `verify` `FAIL`, or from a later task's own first `DEFECT`.
 
-1. **First FAIL on an item.** Read that item's `detail` from `verify`'s
-   report and choose:
+1. **First FAIL (or `DEFECT`) on an item.** Read that item's `detail` —
+   from `verify`'s own report for a FAIL, or the Inspector's own cited lens
+   and reasoning for a `DEFECT` — and choose:
    - **FIX** — dispatch a fresh executor scoped to only that item's gap,
      when the detail reads as a narrow, mechanical miss (an edge case, an
      off-by-one, a wrong path) that doesn't call the task's whole approach
@@ -254,20 +372,36 @@ distinguished from a new failure on a *different* one.
      as a wrong approach (wrong file touched, task misunderstood, a
      `Not here` boundary crossed).
 
-   Either way, re-run step 2.5 (`verify`) against the new attempt. Both
-   FIX and RESAMPLE are dispatches — capture a fresh dispatch timestamp
-   per step 2.2 for each one; step 2.5's `--since` on the re-run is this
-   new attempt's own timestamp, never the first attempt's.
-2. **Second FAIL on the *same* item ID.** Before treating this as genuine,
-   re-run `scripts/verify` exactly once more against the same,
-   already-produced artifacts — no new executor dispatched — to rule out
-   an environment flake.
-   - If that re-run now PASSes: resume at step 2.7 as an ordinary PASS.
-   - If it FAILs again: this is a genuine second failure. Stop dispatching
-     further attempts at this task and diagnose:
+   Either way, re-run step 2.5 (`verify`) against the new attempt — and,
+   since this task is still load-bearing, step 2.6's Inspector runs again
+   too, fresh against the new attempt's own commit, exactly as it would on
+   any load-bearing task's first pass. Both FIX and RESAMPLE are
+   dispatches — capture a fresh dispatch timestamp per step 2.2 for each
+   one; step 2.5's `--since` on the re-run is this new attempt's own
+   timestamp, never the first attempt's.
+2. **Second FAIL (or `DEFECT`) on the *same* item ID.** Before treating
+   this as genuine, rule out noise exactly once more, then stop:
+   - **A `verify` FAIL:** re-run `scripts/verify` exactly once more against
+     the same, already-produced artifacts — no new executor dispatched —
+     to rule out an environment flake.
+   - **An Inspector `DEFECT`:** dispatch exactly one more independent,
+     fresh Inspector against the same, already-produced artifacts — no new
+     executor dispatched, and no further Inspector dispatch beyond this
+     one recheck regardless of its outcome (bounded, not open-ended re-
+     dispatch). A judgment call isn't a deterministic command, so "run it
+     again" doesn't rule out a literal flake the way it does for `verify`;
+     a second, independent fresh-context read is the closest analogue —
+     ruling out one Inspector's own idiosyncratic misread before this
+     task's `DEFECT` counts as genuine.
+   - If that recheck now PASSes (or returns `CLEAR`/`CONCERN`): resume at
+     step 2.7 as an ordinary PASS.
+   - If it FAILs (or `DEFECT`s) again: this is a genuine second failure.
+     Stop dispatching further attempts at this task and diagnose:
      - **REPLAN** — the checkpoint block itself was wrong or
        under-specified (a `Done means` that can't actually be met as
-       written, a `Rests on` that didn't hold). Call
+       written, a `Rests on` that didn't hold, or — for a genuine second
+       `DEFECT` — the block's own contract was ambiguous enough that two
+       independent Inspectors both couldn't clear it). Call
        `scripts/status-flip --plan <path> --task <label> --status REPLAN --reason "<why>"`.
        Report **PAUSED**: the human revises the block by hand (no `/plan`
        exists yet to do it for them), then re-invokes `/build`.
@@ -280,8 +414,9 @@ distinguished from a new failure on a *different* one.
        Report **ESCALATED** — terminal for this session; hand off to
        `/design` in revision mode.
 
-   Either diagnosis is your own judgment call from `verify`'s accumulated
-   per-item detail across both attempts — never automated, never deferred.
+   Either diagnosis is your own judgment call from `verify`'s and (for a
+   load-bearing task) the Inspector's accumulated detail across both
+   attempts — never automated, never deferred.
 3. **No failure resolves itself silently.** Every REPLAN, ESCALATE, or
    setup-stop pause blocks on an explicit human acknowledgment before
    `/build` proceeds. There is no timeout auto-continue, ever.
@@ -327,3 +462,21 @@ never inside, the executor's own turn. "Recommend one action; the human
 decides. Propose; never apply" is the Failure routine's and Cadence's
 whole posture — every REPLAN, ESCALATE, and risk-tagged pause blocks on
 the human, with no auto-continue past any of them.
+
+Step 2.6's Inspector is the same three principles applied one boundary
+further out. "Nothing signs off on itself" is why a load-bearing task's own
+`verify` PASS isn't the last word: a fresh, diff-reading reviewer stands at
+exactly the boundary a script structurally can't reach (whether a test is
+self-dealing, whether a contract matches, whether a hold is gamed).
+"Judgment in the model, mechanics in scripts" is why `CLEAR`/`DEFECT`/
+`CONCERN` stay the Inspector's own judgment call while everything around
+it — evidence capture, the Failure-routine wiring, `status-flip`'s `PASS`
+derivation — stays exactly as mechanical and untouched as it already was.
+"Standalone-capable" is why a `CONCERN` forwards to `/gate-audit` by
+sitting, already committed and self-describing, in the diff a human's own
+later gate run reviews — never a new dependency on `gate-ledger` or on
+studious being installed at all. And the load-bearing gate itself — never
+inspecting a leaf task, regardless of how interesting it looks — is what
+keeps this one narrowly-triggered role from becoming the resident
+reviewer, sprint ceremony, or added persona the anti-cleverness tripwire
+rules out.

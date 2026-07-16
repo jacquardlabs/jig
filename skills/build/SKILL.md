@@ -104,7 +104,13 @@ may appear anywhere in the block. No `Risk:` line means `LOW` — see Cadence.
    section) from the last task's block — a naive parser silently absorbs
    that trailing section into the preceding task card (a real bug the
    project's own M0 dogfood surfaced); read for meaning and don't reproduce
-   it.
+   it. The `##` level itself is not the bug and stays as-is (story
+   `plan-skill`, issue #23): `docs/design/plan-skill.md`'s Step 6 verified,
+   against the actually-installed viva, that a `####` level would be
+   *coarser* than this rule's own level 1–3 boundary and nest inside the
+   preceding task instead — this parsing rule, and `scripts/plan-lint`'s
+   matching one, are the two frozen consumers `/plan` targets, not the bug
+   `/plan` fixes.
 
 ## Step 2 — Per task, in spine order
 

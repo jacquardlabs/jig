@@ -46,6 +46,16 @@ BUILD_VOCABULARY_CONCEPTS = frozenset(
 # this skill discusses.
 FINISH_VOCABULARY_CONCEPTS = frozenset({"/finish verdict"})
 
+# Vocabulary-table concepts that belong to /plan's own domain
+# (skills/plan/SKILL.md): its own closed verdict enum, plus the checkpoint
+# grammar it drafts into every task block (item type, verification tier)
+# and the risk tag it assigns before /build ever sees the plan -- as
+# opposed to /design's, /build's, or /finish's own verdict vocabularies,
+# none of which this skill discusses.
+PLAN_VOCABULARY_CONCEPTS = frozenset(
+    {"/plan verdict", "checkpoint item type", "verification tier", "risk tag"}
+)
+
 
 def _section(markdown: str, heading: str) -> str:
     """Return the text of a `## {heading}` section, up to the next `## `."""
@@ -151,5 +161,20 @@ def derive_finish_vocabulary(design_md: str) -> tuple[str, ...]:
     """
     seen: dict[str, None] = {}
     for token in _vocabulary_table_tokens(design_md, FINISH_VOCABULARY_CONCEPTS):
+        seen.setdefault(token, None)
+    return tuple(seen)
+
+
+def derive_plan_vocabulary(design_md: str) -> tuple[str, ...]:
+    """/plan's own vocabulary (DESIGN.md: Vocabulary table's `/plan verdict`,
+    `checkpoint item type`, `verification tier`, and `risk tag` rows --
+    `PLAN READY`/`DESIGN GAP`/`TOO BIG`, `cap`/`hold`,
+    `script`/`test-backed`/`probe`, `LOW`/`REPLAN-RISK`/`ESCALATE-RISK`),
+    derived from `design_md`'s text rather than an independent,
+    hand-maintained tuple -- same rationale as `derive_jig_vocabulary`,
+    scoped to what `skills/plan/SKILL.md` discusses.
+    """
+    seen: dict[str, None] = {}
+    for token in _vocabulary_table_tokens(design_md, PLAN_VOCABULARY_CONCEPTS):
         seen.setdefault(token, None)
     return tuple(seen)

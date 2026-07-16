@@ -1,0 +1,8 @@
+26017d7 status-flip: task 2 -> PASS
+96cc7a0 evidence: task-2 verify results (Foreman, independent re-check)
+f0decb3 parser: add count_tokens(line), reusing tokenize
+6d6990a status-flip: task 1 -> PASS
+ffaadd3 evidence: task-1 verify results + inspector report (Foreman, independent re-check)
+0b0b61b parser: add tokenize(line) with TDD-backed test coverage
+3626df7 plan: hand-author PLAN.md quick-path tasks 1-2 (tokenize, count_tokens)
+d818945 demo-target: initial scaffold (clean baseline)

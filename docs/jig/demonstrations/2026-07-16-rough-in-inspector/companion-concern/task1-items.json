@@ -1,0 +1,6 @@
+{
+  "task": "task-1",
+  "items": [
+    {"id": 1, "kind": "cap", "tier": "test-backed", "command": "python3 -m unittest tests.test_parser.SafeDivideTest -v"}
+  ]
+}

@@ -1,0 +1,9 @@
+Foreman output — Step 2.6, Task 2
+
+Task 2 is not load-bearing (no other task's `Rests on:` names it) —
+inspector skipped.
+
+(Consulting the fixed load-bearing set computed once at Step 1.5:
+load-bearing = {Task 1}, leaf = {Task 2}. Task 2 is in the leaf set, so
+this is the exact pass-through step 2.6 defines for a leaf task — no
+Inspector dispatch, no dead step. Proceeding straight to step 2.7.)

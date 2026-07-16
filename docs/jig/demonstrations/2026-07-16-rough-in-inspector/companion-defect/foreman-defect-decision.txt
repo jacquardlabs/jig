@@ -1,0 +1,18 @@
+Foreman output — Failure routine, Task 1, pseudo-item-ID "inspector"
+
+DEFECT (first failure on item "inspector") — lens: technicality gaming
+(primary), test self-dealing (same root cause). Inspector's cited
+reasoning: `total_cost` returns a hardcoded `35.0` regardless of its
+`prices` argument; the one committed test only asserts the literal probe
+value and cannot discriminate a real sum from a stub. Full reasoning
+captured verbatim in attempt1-inspector-report.md.
+
+Do not advance to step 2.7. Entering the Failure routine, scoped to this
+task's own pseudo-item-ID "inspector" (distinct from `verify`'s numbered
+Done-means items).
+
+Judgment call: RESAMPLE, not FIX. The Inspector's detail reads as a wrong
+approach (the implementation ignores its own argument entirely; this is
+not a narrow, mechanical, off-by-one-style miss FIX would cover) — dispatch
+a wholly fresh executor for the entire task from scratch, discarding the
+failed attempt (SKILL.md, Failure routine, item 1).

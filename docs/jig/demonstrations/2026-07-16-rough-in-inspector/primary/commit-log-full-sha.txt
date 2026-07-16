@@ -1,0 +1,8 @@
+26017d76728d41cab0d8dd643811c9d41d71cb06 status-flip: task 2 -> PASS
+96cc7a057e507c5a25336b4a87863cf49c95bb72 evidence: task-2 verify results (Foreman, independent re-check)
+f0decb334c968896e71ba9006c76631667f39a64 parser: add count_tokens(line), reusing tokenize
+6d6990afcff8a07c90e6f58e86efb5bdf2adfe0c status-flip: task 1 -> PASS
+ffaadd39622bd5dc4546da9f58a26dbb9874cc57 evidence: task-1 verify results + inspector report (Foreman, independent re-check)
+0b0b61b63c3ecbd85611e645dc40511087f1e256 parser: add tokenize(line) with TDD-backed test coverage
+3626df72aa99bf5a57b3e96ca1374742605ba067 plan: hand-author PLAN.md quick-path tasks 1-2 (tokenize, count_tokens)
+d8189453666a378841d367a27a3f0958b8481981 demo-target: initial scaffold (clean baseline)

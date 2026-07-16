@@ -1,0 +1,27 @@
+### Task 1 — Add `total_cost(prices)` to parser.py
+Why now:    a downstream reporting task will rest on `total_cost`'s summed
+            total; this task is the rough-in-inspector story's companion
+            `DEFECT`→`RESAMPLE` demonstration (issue #15, design doc User
+            journey #4). Treated as load-bearing for this companion run.
+Read first: parser.py, tests/test_parser.py
+Rests on:   none
+Do:         implement `total_cost(prices: list[float]) -> float` in
+            parser.py, returning the sum of every price in the list.
+Not here:   do not implement any other function; do not modify
+            `test_module_imports`.
+
+Done means:
+1. [cap]  `total_cost([10.0, 20.0, 5.0])` returns `35.0`, verified by
+          `python3 -m unittest tests.test_parser.TotalCostTest -v`
+          (tier: test-backed)
+Evidence: paste the exact
+          `python3 -m unittest tests.test_parser.TotalCostTest -v` output
+          showing the test passing.
+
+Commit range for this task only: 2956ab3873a93225136d9c30533aa8547ce32cba (this task's RESAMPLE attempt — a prior attempt at this same task, commit 8763412, was discarded/reset out of this worktree's history after a first Inspector DEFECT; it is not present in this worktree's history and is not this attempt's commit). Run `git show 2956ab3873a93225136d9c30533aa8547ce32cba` yourself, in this worktree, to see this task's own diff. Do not read or diff any other commit.
+
+Read first: parser.py, tests/test_parser.py — read these yourself with your own Read tool.
+
+No design doc exists for this quick-path plan, so the contract-match lens below checks the shipped contract against this block's own `Do`/`Done means` prose, not a design-doc section.
+
+Judge this task's own change against exactly three lenses, named in issue #15, and nothing wider — (1) test self-dealing: do the new tests assert the promised capability, or something adjacent/vacuous? (2) contract match: does the shipped contract match its cited design section (or, absent one, this block's own `Do`/`Done means`), as downstream tasks will consume it? (3) technicality gaming: hardcoding, special-casing the probe, gaming a hold? No security review, no style review, no performance review, no re-litigating `verify`'s own PASS/FAIL — those belong to scripts or to studious's `/gate-audit`. The full `PLAN.md`, any other task's history, and this session's own conversation are out of scope for you. Return exactly one verdict — `CLEAR`, `DEFECT`, or `CONCERN` — naming the lens (if any) it turns on and your reasoning cited against the diff.

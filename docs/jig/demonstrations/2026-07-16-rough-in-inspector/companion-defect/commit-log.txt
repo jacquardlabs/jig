@@ -1,0 +1,6 @@
+9c66bba status-flip: task 1 -> PASS
+fe7634a evidence: task-1 verify results + inspector report (Foreman, independent re-check, after DEFECT/RESAMPLE)
+2956ab3 Implement total_cost(prices) in parser.py
+bcb5589 plan: hand-author companion PLAN.md (total_cost DEFECT/RESAMPLE demonstration)
+3626df7 plan: hand-author PLAN.md quick-path tasks 1-2 (tokenize, count_tokens)
+d818945 demo-target: initial scaffold (clean baseline)

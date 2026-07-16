@@ -1,0 +1,20 @@
+Foreman output — Step 1.4 / 1.5 (computed once, before Task 1 is ever dispatched)
+
+Step 1.4 — plan split into task blocks, in document order:
+  Task 1 — Add `tokenize(line)` to parser.py
+  Task 2 — Add `count_tokens(line)` to parser.py
+
+Step 1.5 — load-bearing set, computed by scanning every other task block's
+own `Rests on:` line for a reference to this task (heading number or an
+unambiguous title match):
+  - Task 2's `Rests on:` line reads "Task 1 (`tokenize`)" — an explicit,
+    literal reference to Task 1's heading number. Task 1 is therefore
+    load-bearing.
+  - No task block's `Rests on:` line names Task 2. Task 2 is therefore a
+    leaf.
+
+Computed set: load-bearing = {Task 1} — leaf = {Task 2}.
+
+This set is fixed for the whole run — it will not be recomputed per task,
+and no task's own executor gets a vote on whether its own task belongs to
+it.

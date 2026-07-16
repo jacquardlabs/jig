@@ -1,0 +1,19 @@
+Foreman output — Step 2.6, Task 1 (CONCERN)
+
+CONCERN — lens: contract match. Inspector's cited reasoning: `safe_divide`'s
+name implies a safety guarantee (handling `b == 0`) that the shipped
+`return a / b` does not provide -- `safe_divide(x, 0.0)` raises
+`ZeroDivisionError` exactly like unguarded division, and the task block's
+own `Do`/`Done means` prose never states what "safe" means or what happens
+at `b == 0`, so a downstream task consuming this function on the strength
+of its name would reasonably assume otherwise. Full reasoning captured
+verbatim in task1-inspector-report.md.
+
+Non-blocking: this task proceeds straight to PASS (step 2.7), same as
+CLEAR. Recommended lane, per SKILL.md's lens -> lane table: contract match
+-> architecture-auditor ("does it fit existing patterns? any coupling
+concerns?" -- a downstream-consumed contract mismatch is exactly a coupling
+concern). The concern rides along in this task's own evidence directory,
+which is already part of this branch's diff the moment a human runs
+`/gate-audit` later -- no gate-ledger coupling, no auto-invoked
+`/gate-audit`.

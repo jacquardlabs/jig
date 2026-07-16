@@ -1,0 +1,1 @@
+note: commit 8763412 (attempt1, hardcoded defect) was reset out of this worktree's history after the DEFECT verdict (RESAMPLE discards the failed attempt) -- it is preserved only in attempt1-inspector-report.md's cited diff text and the reflog is not portable evidence, so this file records that explicitly.

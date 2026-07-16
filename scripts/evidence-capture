@@ -45,6 +45,23 @@ from _gitutil import git_repo_root, last_commit_sha_and_epoch, working_tree_stat
 
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
+# Any identifier that flows into a destination path (the --task directory
+# name; an --artifact's PRODUCER and LABEL, which become the copied
+# filename) must be a plain token — no '/' or '..' to escape the evidence
+# directory. An explicit allowlist (rather than a per-field blocklist of bad
+# substrings) closes that off structurally and gives --task, PRODUCER, and
+# LABEL one shared rule instead of three that can drift apart (issue #51:
+# --task was guarded, the parallel --artifact label was not).
+SAFE_IDENTIFIER_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
+
+
+def _check_safe_identifier(value: str, field: str) -> None:
+    """Raise ValueError unless `value` is a plain path-safe identifier."""
+    if not SAFE_IDENTIFIER_RE.match(value):
+        raise ValueError(
+            f"{field} '{value}' must be a plain identifier matching [A-Za-z0-9_.-]+ (no '/' or '..')"
+        )
+
 
 def parse_artifact_spec(spec: str) -> tuple[str, str, Path]:
     """Parse a `PRODUCER:LABEL=PATH` --artifact value."""
@@ -56,6 +73,8 @@ def parse_artifact_spec(spec: str) -> tuple[str, str, Path]:
     producer, _, label = head.partition(":")
     if not producer or not label or not path_str:
         raise ValueError(f"--artifact '{spec}' must be of the form PRODUCER:LABEL=PATH")
+    _check_safe_identifier(producer, "--artifact producer")
+    _check_safe_identifier(label, "--artifact label")
     return producer, label, Path(path_str)
 
 
@@ -93,8 +112,10 @@ def main(argv: list[str]) -> int:
     if not args.artifact:
         print("error: at least one --artifact is required", file=sys.stderr)
         return 2
-    if "/" in args.task or ".." in args.task or not args.task.strip():
-        print(f"error: --task '{args.task}' must be a plain identifier (no '/' or '..')", file=sys.stderr)
+    try:
+        _check_safe_identifier(args.task, "--task")
+    except ValueError as exc:
+        print(f"error: {exc}", file=sys.stderr)
         return 2
     if args.date is not None and not DATE_RE.match(args.date):
         print(f"error: --date '{args.date}' must be YYYY-MM-DD", file=sys.stderr)

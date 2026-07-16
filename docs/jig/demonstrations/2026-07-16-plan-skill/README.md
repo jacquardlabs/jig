@@ -138,6 +138,32 @@ tasks + `Not-here follow-ups`), and commit the resulting
 demonstration's terminal evidence alongside a note that `/plan` reported
 `PLAN READY`. Re-run `/gate-acceptance` after.
 
+### Live sign-off (completed — this commit)
+
+The blocking leg above is now closed. The project's own developer ran the
+exact runbook above, live, in this worktree, against the real,
+already-committed `ci-wiring-demo/PLAN.md` (via a scratch copy, per the
+runbook) — round 1 parsed to 5 sections (preamble, Task 1, Task 2, Task 3,
+`Not-here follow-ups`) using the mandated `--split-on` pattern, the browser
+tab opened, and the developer approved all 5 cards with zero `changes`/
+`info` comments. `POST /complete` and `revision_history.py` closed the
+session cleanly (server process exited 0).
+
+The terminal evidence pair is committed at
+`viva-round-trip/live-signoff-review-input-r1.json` /
+`viva-round-trip/live-signoff-review-r1.json` — distinct filenames from the
+four mechanical-only `parse_sections.py` invocations above (those never
+launched a server or requested a verdict; this one did, and is a real,
+human-produced `review-r1.json` with five `"verdict": "approved"` entries).
+
+Per `docs/design/plan-skill.md`'s own Verdicts table, `PLAN READY` fires
+when "every task reaches viva `approved`, `scripts/plan-lint` exits 0
+against the final file" — both legs are now true for `ci-wiring-demo/
+PLAN.md`: `plan-lint-output.txt` above already showed 0 violations, and
+this round's `review-r1.json` shows every section approved. `/plan` reports
+`PLAN READY` for this plan; `/build` is the named next step per the
+Verdicts table.
+
 ## `design-gap-demo/` — demonstration 4
 
 `jig` itself has no UI surface (this design doc's own Step 1b finding), so

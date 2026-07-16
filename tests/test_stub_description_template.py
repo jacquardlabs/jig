@@ -46,9 +46,10 @@ SKILLS_DIR = REPO_ROOT / "skills"
 
 # The user-invoked skill stubs that still share one description template.
 # `build` graduated out of this set at story build-skill (M4); `finish`
-# graduated out at story finish-skill (M5) -- both now ship real content,
-# checked by test_build_skill.py / test_finish_skill.py instead.
-STUB_SKILLS = ("design", "plan", "coach")
+# graduated out at story finish-skill (M5); `plan` graduated out at story
+# plan-skill (M3, this epic) -- all three now ship real content, checked by
+# test_build_skill.py / test_finish_skill.py / test_plan_skill.py instead.
+STUB_SKILLS = ("design", "coach")
 
 # The opener every stub description must share: milestone + doc citation up
 # front, before "Will become jig's ..." -- not buried at the end of the

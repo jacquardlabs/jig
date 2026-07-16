@@ -2,6 +2,35 @@
 
 <!-- version list -->
 
+## v1.2.1 (2026-07-16)
+
+### Bug Fixes
+
+- Plan-lint compute_load_bearing gains title-based matching
+  ([#76](https://github.com/jacquardlabs/jig/pull/76),
+  [`95cc4c2`](https://github.com/jacquardlabs/jig/commit/95cc4c24e8ece65ee0939f1d37fe1eb6a4cbd352))
+
+- Pre-dogfood hardening (evidence-capture, timeout, load-bearing, task-split binding)
+  ([#76](https://github.com/jacquardlabs/jig/pull/76),
+  [`95cc4c2`](https://github.com/jacquardlabs/jig/commit/95cc4c24e8ece65ee0939f1d37fe1eb6a4cbd352))
+
+- **evidence-capture**: Reject bare '.' and '..' traversal tokens
+  ([#76](https://github.com/jacquardlabs/jig/pull/76),
+  [`95cc4c2`](https://github.com/jacquardlabs/jig/commit/95cc4c24e8ece65ee0939f1d37fe1eb6a4cbd352))
+
+### Documentation
+
+- Add epic pre-mortem register for pre-dogfood-hardening
+  ([#76](https://github.com/jacquardlabs/jig/pull/76),
+  [`95cc4c2`](https://github.com/jacquardlabs/jig/commit/95cc4c24e8ece65ee0939f1d37fe1eb6a4cbd352))
+
+### Testing
+
+- Bind plan-lint and the load-bearing reference module together
+  ([#76](https://github.com/jacquardlabs/jig/pull/76),
+  [`95cc4c2`](https://github.com/jacquardlabs/jig/commit/95cc4c24e8ece65ee0939f1d37fe1eb6a4cbd352))
+
+
 ## v1.2.0 (2026-07-16)
 
 ### Bug Fixes

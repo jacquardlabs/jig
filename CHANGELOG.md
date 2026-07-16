@@ -2,6 +2,19 @@
 
 <!-- version list -->
 
+## v1.2.0 (2026-07-16)
+
+### Bug Fixes
+
+- Address m2-design-skill finale follow-ups ([#73](https://github.com/jacquardlabs/jig/pull/73),
+  [`1c7f217`](https://github.com/jacquardlabs/jig/commit/1c7f2174042837c02e1072bb20fd1b4a217811b7))
+
+### Features
+
+- Implement /design skill (M2) ([#73](https://github.com/jacquardlabs/jig/pull/73),
+  [`1c7f217`](https://github.com/jacquardlabs/jig/commit/1c7f2174042837c02e1072bb20fd1b4a217811b7))
+
+
 ## v1.1.0 (2026-07-16)
 
 ### Documentation

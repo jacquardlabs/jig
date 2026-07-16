@@ -1,6 +1,0 @@
-9c66bbae6a209215a231a3e0c6cbd95369577947 status-flip: task 1 -> PASS
-fe7634a79ea02b12b59bd09c6b3d9b9926b6b7b7 evidence: task-1 verify results + inspector report (Foreman, independent re-check, after DEFECT/RESAMPLE)
-2956ab3873a93225136d9c30533aa8547ce32cba Implement total_cost(prices) in parser.py
-bcb5589538d78f93116a2ac30d599f8aa3435383 plan: hand-author companion PLAN.md (total_cost DEFECT/RESAMPLE demonstration)
-3626df72aa99bf5a57b3e96ca1374742605ba067 plan: hand-author PLAN.md quick-path tasks 1-2 (tokenize, count_tokens)
-d8189453666a378841d367a27a3f0958b8481981 demo-target: initial scaffold (clean baseline)

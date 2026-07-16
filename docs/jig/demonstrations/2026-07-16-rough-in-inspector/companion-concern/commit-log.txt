@@ -1,6 +1,0 @@
-55dc7e3 status-flip: task 1 -> PASS
-44b3603 evidence: task-1 verify results + inspector report (Foreman, independent re-check, CONCERN forwarded)
-504399e Add safe_divide(a, b) to parser.py
-114e543 plan: hand-author companion PLAN.md (safe_divide CONCERN demonstration)
-3626df7 plan: hand-author PLAN.md quick-path tasks 1-2 (tokenize, count_tokens)
-d818945 demo-target: initial scaffold (clean baseline)

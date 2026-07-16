@@ -1,0 +1,27 @@
+### Task 1 — Add `safe_divide(a, b)` to parser.py
+Why now:    a downstream reporting task will rest on `safe_divide`'s
+            quotient; this task is the rough-in-inspector story's companion
+            `CONCERN` demonstration (issue #15, design doc User journey #5).
+            Treated as load-bearing for this companion run.
+Read first: parser.py, tests/test_parser.py
+Rests on:   none
+Do:         implement `safe_divide(a: float, b: float) -> float` in
+            parser.py, returning `a` divided by `b`.
+Not here:   do not implement any other function; do not modify
+            `test_module_imports`.
+
+Done means:
+1. [cap]  `safe_divide(10.0, 2.0)` returns `5.0`, verified by
+          `python3 -m unittest tests.test_parser.SafeDivideTest -v`
+          (tier: test-backed)
+Evidence: paste the exact
+          `python3 -m unittest tests.test_parser.SafeDivideTest -v` output
+          showing the test passing.
+
+Commit range for this task only: 504399e0477174492e25665e9121305e6867589f (single commit — this task's first and only attempt). Run `git show 504399e0477174492e25665e9121305e6867589f` yourself, in this worktree, to see this task's own diff. Do not read or diff any other commit.
+
+Read first: parser.py, tests/test_parser.py — read these yourself with your own Read tool.
+
+No design doc exists for this quick-path plan, so the contract-match lens below checks the shipped contract against this block's own `Do`/`Done means` prose, not a design-doc section.
+
+Judge this task's own change against exactly three lenses, named in issue #15, and nothing wider — (1) test self-dealing: do the new tests assert the promised capability, or something adjacent/vacuous? (2) contract match: does the shipped contract match its cited design section (or, absent one, this block's own `Do`/`Done means`), as downstream tasks will consume it — including any behavior a downstream consumer would need to know about that the block's own prose left unstated? (3) technicality gaming: hardcoding, special-casing the probe, gaming a hold? No security review, no style review, no performance review, no re-litigating `verify`'s own PASS/FAIL — those belong to scripts or to studious's `/gate-audit`. The full `PLAN.md`, any other task's history, and this session's own conversation are out of scope for you. Return exactly one verdict — `CLEAR`, `DEFECT`, or `CONCERN` — naming the lens (if any) it turns on and your reasoning cited against the diff.

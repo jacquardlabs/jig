@@ -29,20 +29,44 @@ test_discipline_skill.py already takes for its own sibling skill):
 6. `status-flip`'s PASS path is described deriving its token from
    `results.json` alone, never from a Foreman-supplied status string --
    premortem risk #2's mis-transcription guard.
-7. The rough-in inspector is named as an explicit no-op stub pointing at
-   issue #15 -- premortem risk #4 -- not silently skipped or simulated.
-8. `PAUSED` is never described as reported bare -- every cause names its
+7. `PAUSED` is never described as reported bare -- every cause names its
    own resume action -- premortem risk #6.
-9. No `SKILL.md` is nested deeper than the directory's top level (regression
+8. No `SKILL.md` is nested deeper than the directory's top level (regression
    guard for the same failure mode test_scaffold.py guards against).
-10. The dispatch prompt's boundary line itself instructs the executor to
+9. The dispatch prompt's boundary line itself instructs the executor to
     commit and return the SHA, and the executor-return contract no longer
     claims the executor emits verify's ITEMS_SCHEMA JSON -- the Foreman
     transcribes that JSON from the checkpoint block's own `Done means`
     lines instead (gate-acceptance fix-and-retry finding on this story:
     the dispatch prompt never taught the executor to commit or hand back
     a SHA/JSON, contradicted by the demonstrated evidence).
-11. Step 1.1's missing-baseline-convention PAUSE (stop before any worktree,
+
+Story rough-in-inspector (issue #15) replaced step 2.6's former no-op with
+a real, conditional dispatch -- the tests below check that mechanically,
+against the same body the Foreman session actually reads:
+
+10. A load-bearing set is computed exactly once, right after step 1.4's
+    task-split, from `Rests on:` back-references -- before task 1 is ever
+    dispatched (epic pre-mortem risk #3: this must be a fixed, one-time
+    computation, not a per-task guess).
+11. A leaf task's skip is stated, never silent (epic pre-mortem risk #6),
+    and a load-bearing task's Inspector dispatch is scoped to exactly this
+    task's own checkpoint block, commit range, and `Read first` paths --
+    excluding the full `PLAN.md`, other tasks' history, and this session's
+    own conversation (epic pre-mortem risk #2).
+12. Jurisdiction is exactly the three lenses issue #15 names (test
+    self-dealing, contract match, technicality gaming) -- no fourth lens
+    (epic pre-mortem risk #5).
+13. `CLEAR`, `DEFECT`, and `CONCERN` are each wired to a concrete next step:
+    `CLEAR` proceeds to step 2.7 and captures an `inspector:report`
+    evidence artifact; `DEFECT` enters the Failure routine under its own
+    `"inspector"` pseudo-item-ID; `CONCERN` proceeds to `PASS` while
+    naming a `/gate-audit` lane for each lens (epic pre-mortem risk #6/#7).
+14. A second `DEFECT` on the same item ID is bounded -- exactly one more
+    independent Inspector recheck, never open-ended re-dispatch -- before
+    the Foreman's own REPLAN-vs-ESCALATE diagnosis (epic pre-mortem risk
+    #4).
+15. Step 1.1's missing-baseline-convention PAUSE (stop before any worktree,
     name the missing convention plus the resume action, never guess or
     add a workaround flag) and Step 1.4's trailing-coarser-heading
     exclusion from the last task's block are each present and unambiguous
@@ -149,8 +173,8 @@ class TestBuildSkillBody(unittest.TestCase):
         missing = [term for term in BUILD_VOCABULARY if term not in self.body]
         self.assertEqual(missing, [], f"{SKILL_MD} body is missing /build vocabulary terms: {missing}")
 
-    def test_names_the_three_roles(self) -> None:
-        for role in ("Foreman", "Executor", "Scripts"):
+    def test_names_the_four_roles(self) -> None:
+        for role in ("Foreman", "Executor", "Inspector", "Scripts"):
             with self.subTest(role=role):
                 self.assertIn(role, self.body)
 
@@ -282,10 +306,112 @@ class TestBuildSkillBody(unittest.TestCase):
             "reads it, never requires it to live in the worktree either"
         )
 
-    def test_inspector_is_an_explicit_no_op_stub_pointing_at_its_issue(self) -> None:
-        self.assertIn("no-op", self.body.lower())
+    def test_inspector_is_no_longer_a_no_op(self) -> None:
+        # Story rough-in-inspector (issue #15) replaced the prior no-op --
+        # this is a regression guard against ever reintroducing it.
+        self.assertNotIn("Do not call it, simulate it", self.body)
+        self.assertNotIn("named, deliberate pass-through straight from step 5 to step 7", self.body)
         self.assertIn("issue #15", self.body)
-        self.assertPhraseIn("Do not call it, simulate it")
+
+    def test_load_bearing_set_is_computed_once_after_the_task_split(self) -> None:
+        # Epic pre-mortem risk #3: a fixed, one-time computation over step
+        # 1.4's own task blocks, before task 1 is ever dispatched -- not a
+        # per-task, run-to-run guess.
+        self.assertPhraseIn("Compute the load-bearing set, once (issue #15)")
+        self.assertPhraseIn("Using the same task blocks step 1.4 just read into memory")
+        self.assertPhraseIn(
+            "once, for the whole run, before task 1 is ever dispatched"
+        )
+        self.assertPhraseIn("no task's own executor ever gets a vote on whether")
+
+    def test_load_bearing_derivation_reads_rests_on_back_references(self) -> None:
+        self.assertPhraseIn(
+            "task N is **load-bearing** iff *any other* task block's own "
+            "`Rests on:` line names task N"
+        )
+        self.assertPhraseIn("otherwise task N is a **leaf**")
+
+    def test_leaf_task_skip_is_stated_not_silent(self) -> None:
+        # Epic pre-mortem risk #6: a silent skip defeats "none silent."
+        self.assertPhraseIn(
+            "Task N is not load-bearing (no other task's `Rests on:` "
+            "names it) — inspector skipped"
+        )
+
+    def test_inspector_dispatch_is_scoped_to_this_task_only(self) -> None:
+        # Epic pre-mortem risk #2: this task's own checkpoint block, commit
+        # range, and Read first paths -- excluding the full PLAN.md,
+        # another task's history, and this session's own conversation.
+        self.assertPhraseIn(
+            "the commit range for *this task only* — from this task's "
+            "first dispatch through its final, verify-passed commit"
+        )
+        self.assertPhraseIn(
+            "never an earlier or later task's commits"
+        )
+        self.assertPhraseIn(
+            "The full `PLAN.md`, any other task's history, and this "
+            "session's own conversation are out of scope for you"
+        )
+        self.assertPhraseIn("Nothing else goes into the Inspector's dispatch prompt")
+
+    def test_jurisdiction_is_exactly_the_three_named_lenses(self) -> None:
+        # Epic pre-mortem risk #5: no fourth, "reasonable-sounding" lens.
+        # Checked against the whitespace-normalized body since the source
+        # prose hand-wraps some of these phrases across lines.
+        for lens in ("test self-dealing", "contract match", "technicality gaming"):
+            with self.subTest(lens=lens):
+                self.assertIn(lens, self.flat_body)
+        self.assertPhraseIn("exactly three lenses, named in issue #15, and nothing wider")
+        self.assertPhraseIn(
+            "No security review, no style review, no performance review, no "
+            "re-litigating `verify`'s own PASS/FAIL"
+        )
+
+    def test_clear_verdict_proceeds_and_captures_evidence_artifact(self) -> None:
+        self.assertPhraseIn(
+            "State the verdict inline, then proceed to step 2.7 exactly "
+            "as an uninspected task would"
+        )
+        self.assertPhraseIn("--artifact inspector:report=<scratch-path>/inspector-report.md")
+
+    def test_defect_verdict_enters_failure_routine_under_its_own_item_id(self) -> None:
+        # Epic pre-mortem risk #6: a DEFECT is never reported bare -- the
+        # triggering lens and the Inspector's own cited reasoning are named
+        # inline, at the moment it fires.
+        self.assertPhraseIn("wires into the Failure routine as a first failure")
+        self.assertPhraseIn('tracked under this task\'s own pseudo-item-ID `"inspector"`')
+        self.assertPhraseIn(
+            "State inline, at the moment it fires, which of the three "
+            "lenses triggered and the Inspector's own cited reasoning "
+            "— never bare"
+        )
+
+    def test_concern_verdict_is_non_blocking_and_names_a_gate_audit_lane(self) -> None:
+        # Epic pre-mortem risk #6/#7: named inline (not bare), and
+        # self-describing enough that a later /gate-audit pass can't miss
+        # it even without out-of-band routing.
+        self.assertPhraseIn("non-blocking, forwarded to `/gate-audit`")
+        self.assertPhraseIn(
+            "State inline which lens it concerns and the recommended lane below"
+        )
+        self.assertPhraseIn("proceed to step 2.7 exactly as `CLEAR`")
+        for lane in ("test-auditor", "architecture-auditor", "code-auditor"):
+            with self.subTest(lane=lane):
+                self.assertIn(lane, self.body)
+        self.assertPhraseIn("no `gate-ledger` coupling")
+
+    def test_second_defect_recheck_is_bounded_not_open_ended(self) -> None:
+        # Epic pre-mortem risk #4: exactly one more independent Inspector
+        # dispatch, never unbounded re-dispatch, before the Foreman's own
+        # REPLAN-vs-ESCALATE diagnosis.
+        self.assertPhraseIn(
+            "dispatch exactly one more independent, fresh Inspector "
+            "against the same, already-produced artifacts"
+        )
+        self.assertPhraseIn("no further Inspector dispatch beyond this")
+        self.assertPhraseIn("bounded, not open-ended re-")
+        self.assertPhraseIn("Stop dispatching further attempts at this task and diagnose")
 
     def test_paused_is_never_reported_bare(self) -> None:
         self.assertPhraseIn("Never report `PAUSED` bare")

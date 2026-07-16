@@ -1,0 +1,6 @@
+55dc7e38b9a0e4a40ee1f83c1391b2741395f044 status-flip: task 1 -> PASS
+44b3603b0e8204bc7c3ac7ee3618bee7d8161ea2 evidence: task-1 verify results + inspector report (Foreman, independent re-check, CONCERN forwarded)
+504399e0477174492e25665e9121305e6867589f Add safe_divide(a, b) to parser.py
+114e543c72792872274d4b83389f5659fccfda04 plan: hand-author companion PLAN.md (safe_divide CONCERN demonstration)
+3626df72aa99bf5a57b3e96ca1374742605ba067 plan: hand-author PLAN.md quick-path tasks 1-2 (tokenize, count_tokens)
+d8189453666a378841d367a27a3f0958b8481981 demo-target: initial scaffold (clean baseline)

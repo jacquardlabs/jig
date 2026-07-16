@@ -1,0 +1,21 @@
+{
+  "task": "task-1",
+  "date": "2026-07-16",
+  "commit_sha": "0b0b61b63c3ecbd85611e645dc40511087f1e256",
+  "commit_timestamp": "2026-07-16T01:54:04+00:00",
+  "captured_at": "2026-07-16T01:59:26.809487+00:00",
+  "artifacts": [
+    {
+      "producer": "verify",
+      "label": "results",
+      "source": "/private/tmp/claude-501/-Users-bryan-Projects-jig/b3e57ab0-ed26-4b21-b0ac-7fe93cf70b0f/scratchpad/rough-in-demo/task1-results.json",
+      "path": "results.json"
+    },
+    {
+      "producer": "inspector",
+      "label": "report",
+      "source": "/private/tmp/claude-501/-Users-bryan-Projects-jig/b3e57ab0-ed26-4b21-b0ac-7fe93cf70b0f/scratchpad/rough-in-demo/task1-inspector-report.md",
+      "path": "report.md"
+    }
+  ]
+}

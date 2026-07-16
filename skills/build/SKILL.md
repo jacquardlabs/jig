@@ -35,6 +35,30 @@ until a script writes a suffix, then terminally `PASS`/`REPLAN`/`ESCALATE`
 (`FIX` is never a status suffix — it's the failure routine's own transient
 action, see below). You never write any of these by hand.
 
+## Trust boundary
+
+Every command `/build` runs — the baseline command `worktree-setup` reads
+from the target project's own `CLAUDE.md` (Step 1.3), and every
+`script`/`test-backed` `Done means` item `verify` re-runs (Step 2.5) — is
+executed verbatim via the shell (`subprocess.run(..., shell=True)`), with
+no allowlist, sandbox, or confirmation gate. This is by design, the same
+trust model as `make`/`npm test`/a CI runner, not a defect. Commands in a
+plan are executed verbatim via the shell; only run `/build` on plans you
+would run by hand. This holds for the whole dogfood scope (a developer's
+own hand-written `PLAN.md`); it becomes local code execution the moment a
+task block is seeded from untrusted provenance — an external issue/PR
+body, or a `PLAN.md` carrying prompt-injection that steers the Foreman's
+own transcription — so treat any such plan the same way you'd treat
+running its commands by hand yourself, not as data `/build` can safely
+sandbox for you (issue #48).
+
+Each such command also runs under a generous `--timeout`
+(`worktree-setup`'s baseline, `verify`'s per-item commands) so a hung
+command — waiting on stdin, deadlocked, a network-bound test with no
+timeout of its own — is killed and reported as a distinct timeout message,
+never silently hanging the session or reading as an ordinary command
+failure (issue #49).
+
 ## Input
 
 One optional argument: a path to a `PLAN.md`-shaped file, defaulting to

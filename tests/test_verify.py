@@ -26,6 +26,12 @@ Also covers story subprocess-trust-and-timeout (issues #48, #49):
    unaffected by the flag's presence.
 8. The trust boundary is stated explicitly in the script's own docstring.
 
+Also covers story subprocess-timeout-process-group-kill (issue #61):
+
+9. A timed-out command-tier item's whole process group is killed, not just
+   the shell -- a backgrounded child is actually gone afterward, not merely
+   reported as killed.
+
 Run with:
 
     uv run --no-project python3 -m unittest discover -s tests -v
@@ -42,6 +48,7 @@ import unittest
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+from _orphancheck import orphan_spawning_command, process_is_gone, wait_for_marker
 from _tempgit import commit_all, init_repo
 
 
@@ -342,6 +349,36 @@ class TestVerifyTimeout(unittest.TestCase):
             result = run_script(["--items", str(items_path), "--timeout", "5"])
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertIn("overall=PASS", result.stdout)
+
+
+class TestVerifyTimeoutKillsWholeProcessGroup(unittest.TestCase):
+    """Issue #61: a timed-out command-tier item's *whole process group* is
+    killed, not just the shell -- proven by an actually-gone backgrounded
+    child, not merely that the shell/item was reported TIMEOUT.
+
+    Pre-fix, `check_command_item` relied on `subprocess.run`'s own timeout
+    handling, which signals only the one process it manages directly. A
+    command that forks a real child (a backgrounded job, a pipeline stage)
+    left that child running, reparented, past the reported timeout -- the
+    exact gap `os.killpg(process.pid, signal.SIGKILL)` (launched via
+    `start_new_session=True`) closes.
+    """
+
+    def test_backgrounded_child_is_actually_gone_after_timeout(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            command, marker = orphan_spawning_command(Path(tmp))
+            items_path = write_items(Path(tmp), [{"id": 1, "kind": "cap", "tier": "script", "command": command}])
+            result = run_script(["--items", str(items_path), "--timeout", "1"])
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("[FAIL] item 1", result.stdout)
+            self.assertIn("TIMEOUT", result.stdout)
+
+            child_pid = wait_for_marker(marker)
+            self.assertTrue(
+                process_is_gone(child_pid),
+                f"backgrounded child (pid {child_pid}) is still running after the "
+                "reported timeout -- only the shell was killed, not its process group",
+            )
 
 
 class TestVerifyTrustBoundaryDocumented(unittest.TestCase):

@@ -23,6 +23,12 @@ Also covers story subprocess-trust-and-timeout (issues #48, #49):
    unaffected by the flag's presence.
 7. The trust boundary is stated explicitly in the script's own docstring.
 
+Also covers story subprocess-timeout-process-group-kill (issue #61):
+
+8. A timed-out baseline command's whole process group is killed, not just
+   the shell -- a backgrounded child is actually gone afterward, not merely
+   reported as killed.
+
 Run with:
 
     uv run --no-project python3 -m unittest discover -s tests -v
@@ -36,6 +42,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from _orphancheck import orphan_spawning_command, process_is_gone, wait_for_marker
 from _tempgit import init_repo
 
 
@@ -186,6 +193,49 @@ class TestWorktreeSetupTimeout(unittest.TestCase):
 
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertTrue(worktree.is_dir())
+
+
+class TestWorktreeSetupTimeoutKillsWholeProcessGroup(unittest.TestCase):
+    """Issue #61: a timed-out baseline command's *whole process group* is
+    killed, not just the shell -- proven by an actually-gone backgrounded
+    child, not merely that the baseline was reported BASELINE TIMEOUT.
+
+    Pre-fix, the baseline check relied on `subprocess.run`'s own timeout
+    handling, which signals only the one process it manages directly. A
+    baseline command that forks a real child (a backgrounded job, a
+    pipeline stage) left that child running, reparented, past the reported
+    timeout -- the exact gap `os.killpg(process.pid, signal.SIGKILL)`
+    (launched via `start_new_session=True`) closes.
+    """
+
+    def test_backgrounded_child_is_actually_gone_after_baseline_timeout(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp) / "repo"
+            repo.mkdir()
+            init_repo(repo)
+            worktree = Path(tmp) / "wt"
+            command, marker = orphan_spawning_command(Path(tmp))
+
+            result = run_script(
+                [
+                    "--repo", str(repo),
+                    "--branch", "feature-orphan",
+                    "--path", str(worktree),
+                    "--baseline", command,
+                    "--timeout", "1",
+                ]
+            )
+
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("BASELINE TIMEOUT", result.stderr)
+
+            child_pid = wait_for_marker(marker)
+            self.assertTrue(
+                process_is_gone(child_pid),
+                f"backgrounded child (pid {child_pid}) is still running after the "
+                "reported BASELINE TIMEOUT -- only the shell was killed, not its "
+                "process group",
+            )
 
 
 class TestWorktreeSetupTrustBoundaryDocumented(unittest.TestCase):

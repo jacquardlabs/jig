@@ -14,12 +14,22 @@ acceptance criteria mechanically:
    silently reusing stale state.
 4. Not a git repo: refuses with a usage error rather than a traceback.
 
+Also covers story subprocess-trust-and-timeout (issues #48, #49):
+
+5. A baseline command that outlives `--timeout` is killed and reported as
+   a distinct BASELINE TIMEOUT, never conflated with a BASELINE FAILURE
+   (an ordinary non-zero exit).
+6. A baseline command that completes comfortably within `--timeout` is
+   unaffected by the flag's presence.
+7. The trust boundary is stated explicitly in the script's own docstring.
+
 Run with:
 
     uv run --no-project python3 -m unittest discover -s tests -v
 """
 from __future__ import annotations
 
+import re
 import subprocess
 import sys
 import tempfile
@@ -28,11 +38,19 @@ from pathlib import Path
 
 from _tempgit import init_repo
 
+
+def _normalize_ws(text: str) -> str:
+    """Collapse whitespace runs (including line-wrap newlines) to a single
+    space, so a multi-word phrase check doesn't break on where a docstring
+    happens to be hand-wrapped."""
+    return re.sub(r"\s+", " ", text)
+
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SCRIPT = REPO_ROOT / "scripts" / "worktree-setup"
 
 PASS_CMD = "python3 -c 'pass'"
 FAIL_CMD = "python3 -c 'import sys; sys.exit(1)'"
+HANG_CMD = "python3 -c 'import time; time.sleep(5)'"
 
 
 def run_script(args: list[str]) -> subprocess.CompletedProcess[str]:
@@ -119,6 +137,70 @@ class TestWorktreeSetupNotAGitRepo(unittest.TestCase):
 
             self.assertEqual(result.returncode, 2)
             self.assertFalse(worktree.exists())
+
+
+class TestWorktreeSetupTimeout(unittest.TestCase):
+    """Issue #49: a hung baseline command is killed and reported distinctly
+    from an ordinary non-zero-exit BASELINE FAILURE."""
+
+    def test_baseline_exceeding_timeout_is_killed_and_reported_distinctly(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp) / "repo"
+            repo.mkdir()
+            init_repo(repo)
+            worktree = Path(tmp) / "wt"
+
+            result = run_script(
+                [
+                    "--repo", str(repo),
+                    "--branch", "feature-hang",
+                    "--path", str(worktree),
+                    "--baseline", HANG_CMD,
+                    "--timeout", "1",
+                ]
+            )
+
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("BASELINE TIMEOUT", result.stderr)
+            self.assertNotIn("BASELINE FAILURE", result.stderr)
+            self.assertIn("--timeout", result.stderr)
+            # Left in place for inspection, same posture as a BASELINE FAILURE.
+            self.assertTrue(worktree.is_dir())
+
+    def test_baseline_completing_within_timeout_is_unaffected(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp) / "repo"
+            repo.mkdir()
+            init_repo(repo)
+            worktree = Path(tmp) / "wt"
+
+            result = run_script(
+                [
+                    "--repo", str(repo),
+                    "--branch", "feature-fast",
+                    "--path", str(worktree),
+                    "--baseline", PASS_CMD,
+                    "--timeout", "5",
+                ]
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertTrue(worktree.is_dir())
+
+
+class TestWorktreeSetupTrustBoundaryDocumented(unittest.TestCase):
+    """Issue #48: the command-execution trust boundary must be stated
+    explicitly in the script's own docstring, not left implicit."""
+
+    def test_docstring_states_trust_boundary(self) -> None:
+        text = SCRIPT.read_text(encoding="utf-8")
+        self.assertIn(
+            "Commands in a plan are executed verbatim via the shell; only "
+            "run /build on plans you would run by hand",
+            _normalize_ws(text),
+        )
+        self.assertIn("shell=True", text)
+        self.assertIn("issue #48", text)
 
 
 if __name__ == "__main__":

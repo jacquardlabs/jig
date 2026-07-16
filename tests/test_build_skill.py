@@ -292,6 +292,21 @@ class TestBuildSkillBody(unittest.TestCase):
         self.assertPhraseIn("If studious is installed")
         self.assertPhraseIn("ready for review directly")
 
+    def test_trust_boundary_is_stated_explicitly(self) -> None:
+        # Issue #48: the command-execution trust boundary must be named
+        # prominently in SKILL.md, not left implicit.
+        self.assertPhraseIn(
+            "Commands in a plan are executed verbatim via the shell; only "
+            "run `/build` on plans you would run by hand"
+        )
+        self.assertIn("issue #48", self.body)
+
+    def test_timeout_mechanism_is_named(self) -> None:
+        # Issue #49: SKILL.md must name that hung commands are killed under
+        # a timeout and reported distinctly, not silently hang the session.
+        self.assertPhraseIn("generous `--timeout`")
+        self.assertIn("issue #49", self.body)
+
     def test_body_names_all_checkpoint_block_fields(self) -> None:
         for field in ("Why now", "Read first", "Rests on", "Do", "Not here", "Done means", "Evidence"):
             with self.subTest(field=field):

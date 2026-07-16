@@ -56,6 +56,12 @@ PLAN_VOCABULARY_CONCEPTS = frozenset(
     {"/plan verdict", "checkpoint item type", "verification tier", "risk tag"}
 )
 
+# Vocabulary-table concepts that belong to /design's own domain
+# (skills/design/SKILL.md) -- just its own closed verdict enum, as opposed
+# to /plan's, /build's, or /finish's verdict vocabularies, none of which
+# this skill discusses.
+DESIGN_VOCABULARY_CONCEPTS = frozenset({"/design verdict"})
+
 
 def _section(markdown: str, heading: str) -> str:
     """Return the text of a `## {heading}` section, up to the next `## `."""
@@ -176,5 +182,18 @@ def derive_plan_vocabulary(design_md: str) -> tuple[str, ...]:
     """
     seen: dict[str, None] = {}
     for token in _vocabulary_table_tokens(design_md, PLAN_VOCABULARY_CONCEPTS):
+        seen.setdefault(token, None)
+    return tuple(seen)
+
+
+def derive_design_vocabulary(design_md: str) -> tuple[str, ...]:
+    """/design's own verdict vocabulary (DESIGN.md: Vocabulary table's
+    `/design verdict` row -- `DESIGNED` | `NEEDS RESEARCH` | `REVISED`),
+    derived from `design_md`'s text rather than an independent,
+    hand-maintained tuple -- same rationale as `derive_jig_vocabulary`,
+    scoped to what `skills/design/SKILL.md` discusses.
+    """
+    seen: dict[str, None] = {}
+    for token in _vocabulary_table_tokens(design_md, DESIGN_VOCABULARY_CONCEPTS):
         seen.setdefault(token, None)
     return tuple(seen)

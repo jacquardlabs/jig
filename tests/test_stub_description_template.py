@@ -22,6 +22,10 @@ Checks this story's acceptance criteria mechanically:
    own acceptance checks instead. `finish` shared it through M1-M4; story
    `finish-skill` (M5) replaced its stub with real closing-out content, so
    it is no longer part of this set either -- see test_finish_skill.py.
+   `design` shared it through M1; story `design-skill` (M2) replaced its
+   stub with the real batch-interview/forks/sectioned-doc/viva-loop
+   procedure, so it is no longer part of this set either -- see
+   test_design_skill.py.
 2. coach's description keeps citing its own open question (M6, DESIGN.md's
    "Top inconsistencies / risks" section (#4)) rather than silently
    dropping the detail while normalizing the opener.
@@ -47,9 +51,10 @@ SKILLS_DIR = REPO_ROOT / "skills"
 # The user-invoked skill stubs that still share one description template.
 # `build` graduated out of this set at story build-skill (M4); `finish`
 # graduated out at story finish-skill (M5); `plan` graduated out at story
-# plan-skill (M3, this epic) -- all three now ship real content, checked by
-# test_build_skill.py / test_finish_skill.py / test_plan_skill.py instead.
-STUB_SKILLS = ("design", "coach")
+# plan-skill (M3); `design` graduated out at story design-skill (M2) -- all
+# four now ship real content, checked by test_build_skill.py /
+# test_finish_skill.py / test_plan_skill.py / test_design_skill.py instead.
+STUB_SKILLS = ("coach",)
 
 # The opener every stub description must share: milestone + doc citation up
 # front, before "Will become jig's ..." -- not buried at the end of the

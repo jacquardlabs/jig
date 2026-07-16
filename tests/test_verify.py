@@ -16,6 +16,16 @@ Checks this story's acceptance criteria mechanically:
    floor is verify's own, not merely delegated to `evidence-capture`
    (same premortem doc, risk #5).
 
+Also covers story subprocess-trust-and-timeout (issues #48, #49):
+
+6. A command-tier item that outlives `--timeout` is killed and reported as
+   a distinct FAIL detail (`TIMEOUT: ...`), never conflated with an
+   ordinary non-zero-exit FAIL detail (`exit code: ...`), and still counts
+   as FAIL toward the overall result.
+7. A command-tier item that completes comfortably within `--timeout` is
+   unaffected by the flag's presence.
+8. The trust boundary is stated explicitly in the script's own docstring.
+
 Run with:
 
     uv run --no-project python3 -m unittest discover -s tests -v
@@ -24,6 +34,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -32,6 +43,13 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from _tempgit import commit_all, init_repo
+
+
+def _normalize_ws(text: str) -> str:
+    """Collapse whitespace runs (including line-wrap newlines) to a single
+    space, so a multi-word phrase check doesn't break on where a docstring
+    happens to be hand-wrapped."""
+    return re.sub(r"\s+", " ", text)
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SCRIPT = REPO_ROOT / "scripts" / "verify"
@@ -290,6 +308,55 @@ class TestVerifyFailsClosed(unittest.TestCase):
             items_path.write_text("not json", encoding="utf-8")
             result = run_script(["--items", str(items_path)])
             self.assertEqual(result.returncode, 2)
+
+
+class TestVerifyTimeout(unittest.TestCase):
+    """Issue #49: a hung command-tier item is killed and reported distinctly
+    from an ordinary non-zero-exit FAIL."""
+
+    def test_item_exceeding_timeout_is_killed_and_reported_distinctly(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            items_path = write_items(
+                Path(tmp),
+                [
+                    {
+                        "id": 1,
+                        "kind": "cap",
+                        "tier": "script",
+                        "command": "python3 -c 'import time; time.sleep(5)'",
+                    }
+                ],
+            )
+            result = run_script(["--items", str(items_path), "--timeout", "1"])
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("[FAIL] item 1", result.stdout)
+            self.assertIn("TIMEOUT", result.stdout)
+            self.assertNotIn("exit code:", result.stdout)
+            self.assertIn("overall=FAIL", result.stdout)
+
+    def test_item_completing_within_timeout_is_unaffected(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            items_path = write_items(
+                Path(tmp), [{"id": 1, "kind": "cap", "tier": "script", "command": "python3 -c 'pass'"}]
+            )
+            result = run_script(["--items", str(items_path), "--timeout", "5"])
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("overall=PASS", result.stdout)
+
+
+class TestVerifyTrustBoundaryDocumented(unittest.TestCase):
+    """Issue #48: the command-execution trust boundary must be stated
+    explicitly in the script's own docstring, not left implicit."""
+
+    def test_docstring_states_trust_boundary(self) -> None:
+        text = SCRIPT.read_text(encoding="utf-8")
+        self.assertIn(
+            "Commands in a plan are executed verbatim via the shell; only "
+            "run /build on plans you would run by hand",
+            _normalize_ws(text),
+        )
+        self.assertIn("shell=True", text)
+        self.assertIn("issue #48", text)
 
 
 class TestVerifyOutput(unittest.TestCase):

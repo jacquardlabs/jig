@@ -33,6 +33,22 @@ from a prior attempt can't pass just because no `pattern` was supplied
 (same premortem doc, risk #5); this recency floor is verify's own, not
 merely delegated to the downstream `evidence-capture` freshness check.
 
+Trust boundary (issue #48): each `script`/`test-backed` item's `command` is
+plan-supplied (transcribed by `/build`'s Foreman from `PLAN.md`'s Done-means
+prose) and is executed verbatim via the shell -- `subprocess.run(...,
+shell=True)`, no allowlist, sandbox, or confirmation gate. Commands in a
+plan are executed verbatim via the shell; only run /build on plans you
+would run by hand.
+
+Timeout (issue #49): each command-tier item runs under `--timeout` seconds
+(a generous default -- suites legitimately run minutes). A hung command
+(waiting on stdin, deadlocked, a network-bound test with no timeout of its
+own) is killed and reported as a distinct FAIL detail (`TIMEOUT: ...`),
+never conflated with the item's own non-zero-exit FAIL detail (`exit
+code: ...`) -- a hang produces no exit code at all, so the two cases must
+read differently. A timed-out item still counts as FAIL toward the overall
+result, same as any other failing item.
+
 ITEMS_SCHEMA (JSON):
     {
       "task": "task-1",
@@ -59,7 +75,7 @@ from pathlib import Path
 from textwrap import indent
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from _gitutil import resolve_revision_epoch  # noqa: E402
+from _gitutil import DEFAULT_TIMEOUT_SECONDS, resolve_revision_epoch  # noqa: E402
 
 VALID_KINDS = frozenset({"cap", "hold"})
 VALID_TIERS = frozenset({"script", "test-backed", "probe"})
@@ -133,10 +149,21 @@ def resolve_since(since: str, repo: Path) -> float:
     return epoch
 
 
-def check_command_item(item: dict, repo: Path) -> ItemResult:
-    result = subprocess.run(
-        item["command"], shell=True, cwd=repo, capture_output=True, text=True, check=False
-    )
+def check_command_item(item: dict, repo: Path, timeout: float) -> ItemResult:
+    try:
+        result = subprocess.run(
+            item["command"], shell=True, cwd=repo, capture_output=True, text=True, check=False, timeout=timeout
+        )
+    except subprocess.TimeoutExpired as exc:
+        detail = (
+            f"command: {item['command']}\n"
+            f"TIMEOUT: did not finish within --timeout {timeout:g}s and was killed -- "
+            "distinct from an ordinary non-zero-exit failure detail below, since a hung "
+            "command produces no exit status of its own (issue #49)\n"
+            f"--- stdout captured before timeout ---\n{exc.stdout or ''}\n"
+            f"--- stderr captured before timeout ---\n{exc.stderr or ''}"
+        )
+        return ItemResult(item["id"], item["kind"], item["tier"], "FAIL", detail)
     status = "PASS" if result.returncode == 0 else "FAIL"
     detail = (
         f"command: {item['command']}\n"
@@ -180,6 +207,16 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         default=None,
         help="ISO-8601 timestamp or git revision a 'probe' artifact must not predate",
     )
+    parser.add_argument(
+        "--timeout",
+        type=float,
+        default=DEFAULT_TIMEOUT_SECONDS,
+        help=(
+            "seconds to allow each 'script'/'test-backed' item's command to run "
+            f"before treating it as hung and killing it (default: {DEFAULT_TIMEOUT_SECONDS:g}s "
+            "-- suites legitimately run minutes; issue #49)"
+        ),
+    )
     parser.add_argument("--out", default=None, help="path to write a JSON results document")
     return parser.parse_args(argv)
 
@@ -215,7 +252,7 @@ def main(argv: list[str]) -> int:
         return 2
 
     results = [
-        check_probe_item(item, since_ts) if item["tier"] == "probe" else check_command_item(item, repo)
+        check_probe_item(item, since_ts) if item["tier"] == "probe" else check_command_item(item, repo, args.timeout)
         for item in items
     ]
 

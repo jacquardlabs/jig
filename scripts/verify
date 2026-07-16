@@ -35,10 +35,9 @@ merely delegated to the downstream `evidence-capture` freshness check.
 
 Trust boundary (issue #48): each `script`/`test-backed` item's `command` is
 plan-supplied (transcribed by `/build`'s Foreman from `PLAN.md`'s Done-means
-prose) and is executed verbatim via the shell -- `subprocess.run(...,
-shell=True)`, no allowlist, sandbox, or confirmation gate. Commands in a
-plan are executed verbatim via the shell; only run /build on plans you
-would run by hand.
+prose) and is executed verbatim via the shell -- `shell=True`, no
+allowlist, sandbox, or confirmation gate. Commands in a plan are executed
+verbatim via the shell; only run /build on plans you would run by hand.
 
 Timeout (issue #49): each command-tier item runs under `--timeout` seconds
 (a generous default -- suites legitimately run minutes). A hung command
@@ -47,7 +46,12 @@ own) is killed and reported as a distinct FAIL detail (`TIMEOUT: ...`),
 never conflated with the item's own non-zero-exit FAIL detail (`exit
 code: ...`) -- a hang produces no exit code at all, so the two cases must
 read differently. A timed-out item still counts as FAIL toward the overall
-result, same as any other failing item.
+result, same as any other failing item. The kill takes down the command's
+whole process group, not just the shell (issue #61) -- via
+`_gitutil.run_shell_with_timeout`, launched with `start_new_session=True`
+and killed on timeout with `os.killpg(process.pid, signal.SIGKILL)` -- so a
+backgrounded or piped child can't outlive the shell that was reported
+killed.
 
 ITEMS_SCHEMA (JSON):
     {
@@ -75,7 +79,7 @@ from pathlib import Path
 from textwrap import indent
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from _gitutil import DEFAULT_TIMEOUT_SECONDS, resolve_revision_epoch  # noqa: E402
+from _gitutil import DEFAULT_TIMEOUT_SECONDS, resolve_revision_epoch, run_shell_with_timeout  # noqa: E402
 
 VALID_KINDS = frozenset({"cap", "hold"})
 VALID_TIERS = frozenset({"script", "test-backed", "probe"})
@@ -151,9 +155,7 @@ def resolve_since(since: str, repo: Path) -> float:
 
 def check_command_item(item: dict, repo: Path, timeout: float) -> ItemResult:
     try:
-        result = subprocess.run(
-            item["command"], shell=True, cwd=repo, capture_output=True, text=True, check=False, timeout=timeout
-        )
+        result = run_shell_with_timeout(item["command"], repo, timeout)
     except subprocess.TimeoutExpired as exc:
         detail = (
             f"command: {item['command']}\n"

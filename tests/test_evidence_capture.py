@@ -356,6 +356,73 @@ class TestEvidenceCaptureUsageErrors(unittest.TestCase):
             )
             self.assertEqual(result.returncode, 2)
 
+    def test_artifact_label_bare_dotdot_with_no_suffix_source_is_rejected(self) -> None:
+        """Issue #60: SAFE_IDENTIFIER_RE's [A-Za-z0-9_.-]+ allowlist admits
+        '.' as a character (so labels like "v1.2" work) — which means the
+        bare strings '.' and '..' pass the regex too, even though they are
+        exactly the traversal tokens it exists to keep out.
+
+        A label of '..' paired with a no-suffix artifact source collapses
+        `dest_name = f"{label}{path.suffix}"` to exactly '..', which
+        shutil.copy2 resolves to the evidence directory's *parent* rather
+        than refusing — a silent one-directory-up escape, not a loud
+        rejection. Confirm the write is refused before any evidence
+        directory (or stray file above it) is ever created."""
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp) / "repo"
+            repo.mkdir()
+            init_repo(repo)
+
+            # No suffix: path.suffix == "", so dest_name == label exactly.
+            artifact = Path(tmp) / "source"
+            artifact.write_text("evidence\n", encoding="utf-8")
+
+            evidence_root = Path(tmp) / "evidence"
+            result = run_script(
+                [
+                    "--task",
+                    "task-1",
+                    "--repo",
+                    str(repo),
+                    "--evidence-root",
+                    str(evidence_root),
+                    "--artifact",
+                    f"verify:..={artifact}",
+                ]
+            )
+
+            self.assertEqual(result.returncode, 2)
+            self.assertIn("--artifact label", result.stderr)
+            # Refused before any write: no evidence directory, and nothing
+            # landed one level above it (in tmp, evidence_root's parent).
+            self.assertFalse(evidence_root.exists())
+            self.assertEqual(sorted(p.name for p in Path(tmp).iterdir()), ["repo", "source"])
+
+    def test_task_id_bare_dot_is_rejected(self) -> None:
+        """The '.' sibling of '..' — same allowlist gap (SAFE_IDENTIFIER_RE
+        admits '.' as a character, so the bare string passes it), same fix,
+        checked here on --task rather than --artifact LABEL."""
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp) / "repo"
+            repo.mkdir()
+            init_repo(repo)
+            artifact = Path(tmp) / "artifact.txt"
+            artifact.write_text("evidence\n", encoding="utf-8")
+
+            result = run_script(
+                [
+                    "--task",
+                    ".",
+                    "--repo",
+                    str(repo),
+                    "--evidence-root",
+                    str(Path(tmp) / "evidence"),
+                    "--artifact",
+                    f"verify:results={artifact}",
+                ]
+            )
+            self.assertEqual(result.returncode, 2)
+
 
 if __name__ == "__main__":
     sys.exit(unittest.main())

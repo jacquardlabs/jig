@@ -434,6 +434,72 @@ class TestPlanLintLoadBearing(unittest.TestCase):
             result = run_script([str(plan)])
             self.assertEqual(result.returncode, 0, result.stdout)
 
+    def test_unambiguous_title_only_reference_makes_a_task_load_bearing(self) -> None:
+        """Issue #62's sibling gap: compute_load_bearing only matched by
+        heading number until now. SKILL.md step 1.5 promises a second,
+        independent path -- an unambiguous title match, no "Task N" number
+        anywhere in the Rests-on line -- mirroring tests/_load_bearing.py's
+        own reference implementation of the same rule."""
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp) / "repo"
+            repo.mkdir()
+            init_repo(repo)
+            task1 = (
+                "### Task 1 — Add a doubling helper\n"
+                "Why now:    n/a\n"
+                "Read first: `README.md`\n"
+                "Rests on:   n/a\n"
+                "Do:         n/a\n"
+                "Not here:   n/a\n\n"
+                "Done means:\n"
+                "1. [cap]  behaves correctly, no concrete referent   (tier: probe)\n"
+                "2. [hold] h                                        (tier: probe)\n"
+                "Evidence: n/a\n"
+            )
+            task2 = _minimal_task(2, rests_on="the doubling helper from Add a doubling helper", items="1. [cap] c (tier: probe)\n2. [hold] h (tier: probe)\n")
+            plan = write(repo / "PLAN.md", task1 + "\n" + task2)
+            result = run_script([str(plan)])
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("[load-bearing-cap-vague] task 1:", result.stdout)
+
+    def test_ambiguous_shared_title_never_counts_as_a_title_match(self) -> None:
+        """Two tasks sharing the exact same title can't uniquely identify
+        either one by title alone -- a Rests-on line naming that shared
+        title (no task number) must not mark either task load-bearing via
+        the title path."""
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp) / "repo"
+            repo.mkdir()
+            init_repo(repo)
+            task1 = (
+                "### Task 1 — Shared title\n"
+                "Why now:    n/a\n"
+                "Read first: `README.md`\n"
+                "Rests on:   n/a\n"
+                "Do:         n/a\n"
+                "Not here:   n/a\n\n"
+                "Done means:\n"
+                "1. [cap]  behaves correctly, no concrete referent   (tier: probe)\n"
+                "2. [hold] h                                        (tier: probe)\n"
+                "Evidence: n/a\n"
+            )
+            task2 = (
+                "### Task 2 — Shared title\n"
+                "Why now:    n/a\n"
+                "Read first: `README.md`\n"
+                "Rests on:   n/a\n"
+                "Do:         n/a\n"
+                "Not here:   n/a\n\n"
+                "Done means:\n"
+                "1. [cap]  c   (tier: probe)\n"
+                "2. [hold] h   (tier: probe)\n"
+                "Evidence: n/a\n"
+            )
+            task3 = _minimal_task(3, rests_on="depends on Shared title", items="1. [cap] c (tier: probe)\n2. [hold] h (tier: probe)\n")
+            plan = write(repo / "PLAN.md", task1 + "\n" + task2 + "\n" + task3)
+            result = run_script([str(plan)])
+            self.assertEqual(result.returncode, 0, result.stdout)
+
 
 class TestPlanLintNotHereFollowups(unittest.TestCase):
     def test_empty_bullet_is_undrafted(self) -> None:

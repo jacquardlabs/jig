@@ -17,9 +17,9 @@ state (docs/studious/premortems/build-scripts.md, risk #2).
 
 Trust boundary (issue #48): the baseline command is project-supplied (read
 from the target project's own CLAUDE.md by `/build`'s Foreman) and is
-executed verbatim via the shell -- `subprocess.run(..., shell=True)`, no
-allowlist, sandbox, or confirmation gate. Commands in a plan are executed
-verbatim via the shell; only run /build on plans you would run by hand.
+executed verbatim via the shell -- `shell=True`, no allowlist, sandbox, or
+confirmation gate. Commands in a plan are executed verbatim via the shell;
+only run /build on plans you would run by hand.
 
 Timeout (issue #49): the baseline command runs under `--timeout` seconds
 (a generous default -- suites legitimately run minutes). A hung command
@@ -27,7 +27,11 @@ Timeout (issue #49): the baseline command runs under `--timeout` seconds
 own) is killed and reported as a distinct BASELINE TIMEOUT, never
 conflated with the command's own non-zero-exit BASELINE FAILURE message --
 a hang produces no exit code at all, so the two cases must read
-differently.
+differently. The kill takes down the baseline command's whole process
+group, not just the shell (issue #61) -- via `_gitutil.run_shell_with_
+timeout`, launched with `start_new_session=True` and killed on timeout
+with `os.killpg(process.pid, signal.SIGKILL)` -- so a backgrounded or
+piped child can't outlive the shell that was reported killed.
 
 Exit codes: 0 clean baseline: worktree ready to build in. 1 the worktree
 was created but the baseline command failed, timed out, or failed to
@@ -46,6 +50,7 @@ from _gitutil import (  # noqa: E402
     branch_exists,
     git_repo_root,
     run,
+    run_shell_with_timeout,
     worktree_registered,
 )
 
@@ -131,15 +136,7 @@ def main(argv: list[str]) -> int:
         return 1
 
     try:
-        baseline_result = subprocess.run(
-            args.baseline,
-            shell=True,
-            cwd=worktree_path,
-            capture_output=True,
-            text=True,
-            check=False,
-            timeout=args.timeout,
-        )
+        baseline_result = run_shell_with_timeout(args.baseline, worktree_path, args.timeout)
     except subprocess.TimeoutExpired as exc:
         print(
             "BASELINE TIMEOUT (the command did not finish within --timeout "

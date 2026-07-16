@@ -77,6 +77,7 @@ from __future__ import annotations
 import argparse
 import re
 import sys
+from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -94,6 +95,16 @@ PLACEHOLDER_FOLLOWUPS = frozenset({"", "todo", "tbd", "..."})
 # executed must not spuriously fail on the heading pattern. plan-lint
 # doesn't validate the suffix itself -- that's status-flip's own contract.
 TASK_HEADING_RE = re.compile(r"^### Task (\d+)\b.*$", re.MULTILINE)
+# Captures a task heading's own title text (after the em-dash), for
+# compute_load_bearing's title-match path (issue #62's sibling gap: the
+# reference tests/_load_bearing.py already matches this way; this was the
+# still-number-only copy). No title (a bare "### Task N" with nothing
+# after it) is fine -- _task_title returns "" and title-match never fires.
+TASK_HEADING_TITLE_RE = re.compile(r"^### Task \d+(?:\s*—\s*(.*))?$", re.MULTILINE)
+# scripts/status-flip's own SUFFIX_RE, duplicated here (scripts are
+# self-contained, not a shared package) so a title comparison ignores the
+# suffix status-flip appends and compares the same text a human reads.
+STATUS_FLIP_SUFFIX_RE = re.compile(r"\s*\[(?:PASS|REPLAN|ESCALATE)\]\s*$")
 # Any heading at level 1-3: the next task heading, or a coarser section
 # (e.g. a closing `## Not-here follow-ups`), either one ends a task block.
 HEADING_LEVEL_1_TO_3_RE = re.compile(r"^(#{1,3})[ \t]", re.MULTILINE)
@@ -113,7 +124,6 @@ ITEM_RE = re.compile(
 TIER_BODY_RE = re.compile(r"^([\w-]+)(?:\s+`([^`]+)`)?$")
 BACKTICK_RE = re.compile(r"`([^`]+)`")
 LINE_LOCATOR_SUFFIX_RE = re.compile(r":\d+(?:-\d+)?$")
-TASK_REF_RE = re.compile(r"Task\s+(\d+)")
 BULLET_RE = re.compile(r"^[ \t]*[-*][ \t]+(.*)$", re.MULTILINE)
 
 NOT_HERE_FOLLOWUPS_LABEL = "(Not-here follow-ups)"
@@ -172,16 +182,54 @@ def strip_line_locator(span: str) -> str:
     return LINE_LOCATOR_SUFFIX_RE.sub("", span)
 
 
+def _task_title(block: str) -> str:
+    """The task's own heading title (after the em-dash), with any
+    status-flip suffix stripped -- "" if the heading carries no title at
+    all (a bare `### Task N`)."""
+    first_line = block.splitlines()[0] if block else ""
+    m = TASK_HEADING_TITLE_RE.match(first_line)
+    if not m or not m.group(1):
+        return ""
+    return STATUS_FLIP_SUFFIX_RE.sub("", m.group(1)).strip()
+
+
+def _is_number_match(rests_on_text: str, task_num: str) -> bool:
+    """SKILL.md step 1.5's first alternative: the `Rests on:` line names
+    the dependency by its heading number, e.g. the literal text "Task 2"."""
+    return bool(re.search(rf"\bTask\s+{re.escape(task_num)}\b", rests_on_text))
+
+
+def _is_title_match(rests_on_text: str, title: str, title_counts: Counter[str]) -> bool:
+    """SKILL.md step 1.5's second, independent alternative: an *unambiguous*
+    title match to task N's own heading -- the `Rests on:` line names the
+    dependency by its title alone, with no heading number anywhere in it.
+    Unambiguous means no other task in the same plan shares that exact
+    title (case-insensitive) -- a title two tasks share can't uniquely
+    identify either one, so it never counts as a match. Mirrors
+    tests/_load_bearing.py's own `_is_title_match` (issue #62's sibling
+    reference implementation) so both copies of this rule agree."""
+    if not title or title_counts[title.casefold()] > 1:
+        return False
+    return title.casefold() in rests_on_text.casefold()
+
+
 def compute_load_bearing(tasks: list[tuple[str, str]]) -> frozenset[str]:
     """A task is LOAD-BEARING iff some *other* task's `Rests on:` line names
-    it -- derived mechanically, never declared (the handoff's own §5.3
-    decision 8), reused rather than re-invented for a second definition."""
+    it -- by heading number (e.g. "Task 2") or by an unambiguous title
+    match to that task's own heading, SKILL.md step 1.5's two independent
+    match paths -- derived mechanically, never declared (the handoff's own
+    §5.3 decision 8), reused rather than re-invented for a second
+    definition."""
+    titles = {task_num: _task_title(block) for task_num, block in tasks}
+    title_counts: Counter[str] = Counter(t.casefold() for t in titles.values() if t)
     load_bearing: set[str] = set()
     for task_num, block in tasks:
         rests_on = extract_field(block, RESTS_ON_RE)
-        for ref in TASK_REF_RE.findall(rests_on):
-            if ref != task_num:
-                load_bearing.add(ref)
+        for other_num, other_title in titles.items():
+            if other_num == task_num:
+                continue
+            if _is_number_match(rests_on, other_num) or _is_title_match(rests_on, other_title, title_counts):
+                load_bearing.add(other_num)
     return frozenset(load_bearing)
 
 

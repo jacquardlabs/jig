@@ -131,7 +131,12 @@ Two follow-up sources, both drafted earlier in the pipeline, neither filed
 until now:
 
 - **Not-here follow-ups** — `PLAN.md`'s own `## Not-here follow-ups`
-  section (bulleted, one line each). Read it directly.
+  section (bulleted, one line each). Read it directly. The `##` level is
+  confirmed safe, not just carried forward (story `plan-skill`, issue #23):
+  `docs/design/plan-skill.md`'s Step 6 re-verified this against the
+  actually-installed viva, including the `Revision History`-collision case
+  a bare heading-level read would miss — `/plan`'s own viva invocation
+  passes an explicit `--split-on` rather than relying on auto-detect alone.
 - **NOTES stubs** — an executor's stray discoveries during a task ("outside
   Done-means... never into the diff") are meant to land in a NOTES stub
   rather than the diff. `/build`'s current implementation does not yet

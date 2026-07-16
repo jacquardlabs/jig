@@ -30,13 +30,14 @@ from __future__ import annotations
 import unittest
 from pathlib import Path
 
-from _vocabulary import derive_build_vocabulary, derive_finish_vocabulary, derive_jig_vocabulary
+from _vocabulary import derive_build_vocabulary, derive_finish_vocabulary, derive_jig_vocabulary, derive_plan_vocabulary
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DESIGN_MD = REPO_ROOT / "DESIGN.md"
 SKILL_MD = REPO_ROOT / "skills" / "task-execution-discipline" / "SKILL.md"
 BUILD_SKILL_MD = REPO_ROOT / "skills" / "build" / "SKILL.md"
 FINISH_SKILL_MD = REPO_ROOT / "skills" / "finish" / "SKILL.md"
+PLAN_SKILL_MD = REPO_ROOT / "skills" / "plan" / "SKILL.md"
 
 
 class TestDeriveJigVocabulary(unittest.TestCase):
@@ -214,6 +215,68 @@ class TestDeriveFinishVocabulary(unittest.TestCase):
         missing = [t for t in mutated_vocabulary if t not in self.finish_skill_body]
         self.assertIn(
             "ABANDON",
+            missing,
+            "a deliberate DESIGN.md token rename should have been caught "
+            "as a missing term once SKILL.md wasn't updated to match",
+        )
+
+
+class TestDerivePlanVocabulary(unittest.TestCase):
+    def setUp(self) -> None:
+        self.design_text = DESIGN_MD.read_text(encoding="utf-8")
+        self.plan_skill_body = PLAN_SKILL_MD.read_text(encoding="utf-8")
+        self.vocabulary = derive_plan_vocabulary(self.design_text)
+
+    def test_pulls_known_terms_from_the_real_design_md(self) -> None:
+        for term in (
+            "PLAN READY",
+            "DESIGN GAP",
+            "TOO BIG",
+            "cap",
+            "hold",
+            "script",
+            "test-backed",
+            "probe",
+            "LOW",
+            "REPLAN-RISK",
+            "ESCALATE-RISK",
+        ):
+            with self.subTest(term=term):
+                self.assertIn(term, self.vocabulary)
+
+    def test_excludes_other_commands_verdict_vocabularies(self) -> None:
+        # /design, /build, and /finish each own their own verdict enum in
+        # the same Vocabulary table; /plan discusses none of them.
+        for term in ("DESIGNED", "BUILT", "MERGE", "CLEAR"):
+            with self.subTest(term=term):
+                self.assertNotIn(term, self.vocabulary)
+
+    def test_every_derived_term_is_present_in_plan_skill_md(self) -> None:
+        missing = [t for t in self.vocabulary if t not in self.plan_skill_body]
+        self.assertEqual(missing, [])
+
+    def test_deliberate_design_md_token_change_is_caught(self) -> None:
+        """Same demonstration as the other TestDerive*Vocabulary classes,
+        for /plan's own verdict enum: rename PLAN READY in an in-memory
+        copy of DESIGN.md, without touching skills/plan/SKILL.md, and
+        confirm the derived vocabulary now flags it missing."""
+        mutated_design_text = self.design_text.replace("`PLAN READY`", "`PLAN GOOD`", 1)
+        self.assertEqual(
+            self.design_text.count("`PLAN READY`"),
+            1,
+            "expected exactly one `PLAN READY` token in DESIGN.md's "
+            "Vocabulary table; this test's mutation assumption needs "
+            "updating to match the table's current shape",
+        )
+
+        mutated_vocabulary = derive_plan_vocabulary(mutated_design_text)
+
+        self.assertIn("PLAN GOOD", mutated_vocabulary)
+        self.assertNotIn("PLAN READY", mutated_vocabulary)
+
+        missing = [t for t in mutated_vocabulary if t not in self.plan_skill_body]
+        self.assertIn(
+            "PLAN GOOD",
             missing,
             "a deliberate DESIGN.md token rename should have been caught "
             "as a missing term once SKILL.md wasn't updated to match",

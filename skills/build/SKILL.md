@@ -94,10 +94,19 @@ Do:         ...
 Not here:   ...
 
 Done means:
-1. [cap|hold]  <behavior>                                    (tier: script|test-backed|probe)
+1. [cap|hold]  <behavior text>          (tier: script `scripts/plan-lint`)
+2. [cap|hold]  <behavior text>          (tier: test-backed `tests/test_plan_lint.py`)
+3. [cap|hold]  <behavior text>          (tier: probe)
 ...
 Evidence: ...
 ```
+
+Inside the tier parenthetical: the tier word itself (`script` / `test-backed` /
+`probe` — DESIGN.md's closed enum, no `judgment` tier), and, for `script` /
+`test-backed` items only, a backtick-quoted repo-relative method path
+immediately after it — that path is what you transcribe into `command` at
+Step 2.5. A `probe` item carries no path: there's no pre-existing repo file
+to name for a live-observed artifact.
 
 An optional `Risk:` line (e.g. `Risk: REPLAN-RISK` or `Risk: ESCALATE-RISK`)
 may appear anywhere in the block. No `Risk:` line means `LOW` — see Cadence.
@@ -134,7 +143,13 @@ may appear anywhere in the block. No `Risk:` line means `LOW` — see Cadence.
    section) from the last task's block — a naive parser silently absorbs
    that trailing section into the preceding task card (a real bug the
    project's own M0 dogfood surfaced); read for meaning and don't reproduce
-   it.
+   it. The `##` level itself is not the bug and stays as-is (story
+   `plan-skill`, issue #23): `docs/design/plan-skill.md`'s Step 6 verified,
+   against the actually-installed viva, that a `####` level would be
+   *coarser* than this rule's own level 1–3 boundary and nest inside the
+   preceding task instead — this parsing rule, and `scripts/plan-lint`'s
+   matching one, are the two frozen consumers `/plan` targets, not the bug
+   `/plan` fixes.
 5. **Compute the load-bearing set, once (issue #15).** Using the same task
    blocks step 1.4 just read into memory: for every task N, task N is
    **load-bearing** iff *any other* task block's own `Rests on:` line names

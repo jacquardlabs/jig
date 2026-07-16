@@ -111,11 +111,12 @@ Written to `docs/design/<slug>.md` -- the same path and one-file-per-story
 naming every prior design doc in this project already uses.
 
 **5-8 sections, each with a named consumer.** Use `design-doc-contract.md`'s
-seven section names -- the contract-canonical convention, not the
-handoff-literal one `DESIGN.md`'s Formatting section still names (a known,
-flagged staleness; see Open questions) -- because every design doc this
-project has actually shipped and gate-reviewed uses these seven, and only
-these seven give `Operational readiness` an unambiguous home:
+seven section names -- the contract-canonical convention, matching
+`DESIGN.md`'s own "Design doc structure" line (reconciled to these same
+seven names, no longer the stale handoff-literal set) -- because every
+design doc this project has actually shipped and gate-reviewed uses these
+seven, and only these seven give `Operational readiness` an unambiguous
+home:
 
 1. **Problem & persona** -- Consumer: the human deciding to fund the work;
    product-reviewer Q1.
@@ -141,11 +142,17 @@ implicit in the interview transcript alone.
 
 ## Step 5 -- Call design-lint, fix before viva
 
-Run `scripts/design-lint docs/design/<slug>.md` on the freshly-drafted doc
-before any viva round launches. This is the same exit-code contract every
+Run `scripts/design-lint --doc docs/design/<slug>.md --repo <worktree>` on
+the freshly-drafted doc before any viva round launches -- the real script's
+own CLI shape (`--doc` is required; a bare positional argument is a usage
+error), matching how every sibling script in this repo (`scripts/verify`,
+`scripts/evidence-capture`, `scripts/evidence-freshness`,
+`scripts/build-report`) already takes `--repo <worktree>` rather than
+assuming the process's own cwd. This is the same exit-code contract every
 sibling lint/verify script in this repo already uses: `0` (clean), `1`
-(violations, all printed), `2` (usage error -- e.g. missing file or zero
-recognized sections). Never a new convention invented here.
+(violations, all printed), `2` (usage error -- e.g. missing file, a bad
+`--repo`, or a positional call instead of `--doc`). Never a new convention
+invented here.
 
 **A non-zero exit is fixed and re-linted before Step 6 ever launches a
 server.** `/design` never starts a viva round against a lint-failing doc --
@@ -230,11 +237,27 @@ of every `/design` session.
   `hint`/`text` today (Steps 2-3), a functional but informal workaround.
   Worth a real upstream viva feature request once the workaround's cost is
   felt over more than one invocation -- not filed by this skill itself.
-- `DESIGN.md`'s Formatting section still names the handoff-literal seven
-  section names as canonical, while this skill and every design doc this
-  project has shipped use `design-doc-contract.md`'s seven instead. Flagged
-  for a future `/deep-review interface` pass or a `/finish`-time decision
-  patch -- not fixed by `/design` itself.
+- **Resolved, not deferred:** `DESIGN.md`'s Formatting section previously
+  still named the handoff-literal seven as canonical while this skill and
+  every shipped design doc used `design-doc-contract.md`'s seven instead --
+  that staleness was originally flagged here for a future
+  `/deep-review interface` pass or a `/finish`-time decision patch, but
+  deferring it left Step 5 hard-depending on a linter that (per `DESIGN.md`)
+  would never accept this skill's own output. `DESIGN.md`'s "Design doc
+  structure" line now names the same contract-canonical seven this skill
+  drafts, closing that gap directly rather than waiting on a later pass.
+- **Also resolved, not still open:** `scripts/design-lint` (issue #9)
+  originally shipped with its `CANONICAL_SECTIONS`/`REQUIRED_SECTIONS`
+  constants still encoding the old handoff-literal names, which would have
+  made a real Step 5 invocation against this skill's own contract-canonical
+  seven section names fail outright. That gap is now closed by the sibling
+  `design-lint-reconcile` story (`docs/design/design-lint-reconcile.md`,
+  merged): the constants were reconciled to `design-doc-contract.md`'s
+  seven, and Checks 2-4's old heading-specific lookups were remapped to
+  match (`design-lint-reconcile.md` names the exact remap). Verified
+  directly against this story's own `docs/design/design-skill.md`:
+  `scripts/design-lint --doc docs/design/design-skill.md --repo .` reports
+  a clean pass (5 checks, 0 violations), exit `0`.
 
 ## Why this shape
 

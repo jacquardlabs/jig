@@ -16,7 +16,7 @@ once M2–M6 land real implementations.
 
 | Surface | Framework / tech | Entry point |
 |---------|------------------|-------------|
-| `plugin` | Claude Code plugin (skills + deterministic scripts) | Scaffolded, not yet implemented — `skills/design`, `skills/plan`, `skills/build`, `skills/finish`, and `skills/coach` exist as stub `SKILL.md` files (M1); real behavior lands M2–M6. `scripts/design-lint` is still an executable stub that exits 0 unconditionally. `scripts/plan-lint` is real as of the plan-lint story (issue #12, M3) — a zero-model structural linter with a deterministic 0/1/2 exit code, per this doc's Formatting section above. |
+| `plugin` | Claude Code plugin (skills + deterministic scripts) | Scaffolded, not yet implemented — `skills/design`, `skills/plan`, `skills/build`, `skills/finish`, and `skills/coach` exist as stub `SKILL.md` files (M1); real behavior lands M2–M6. `scripts/design-lint` is real as of the design-lint story (issue #9, M2) and `scripts/plan-lint` is real as of the plan-lint story (issue #12, M3) — both zero-model structural linters with a deterministic 0/1/2 exit code, per this doc's Formatting section above. |
 
 ## Semantic palette
 
@@ -71,9 +71,17 @@ source and this table should be updated to point there.
   task) is the plan author's explicit signal that a token is concrete and
   checkable, not narrative — `scripts/plan-lint` treats prose outside
   backticks as unchecked by design.
-- **Design doc structure** (handoff §5.1 step 4): 5-8 sections, each tied to
-  a named downstream consumer (Intent, Experience, Contracts, Approach,
-  Assumptions, Not doing, Risks — see the section→consumer table in §5.1).
+- **Design doc structure** (`reference/design-doc-contract.md`, ratified by
+  story `design-skill`/issue #8's own design doc, Proposed design → Step 4
+  fork): 5-8 sections, each tied to a named downstream consumer (Problem &
+  persona, Proposed design, User journey, Out of scope, Alternatives
+  considered, Operational readiness, Open questions — see
+  `skills/design/SKILL.md` Step 4 for the section→consumer table). This
+  supersedes the handoff §5.1 step 4 wording this bullet previously carried
+  (Intent, Experience, Contracts, Approach, Assumptions, Not doing, Risks):
+  every design doc this project has actually shipped and gate-reviewed uses
+  the seven named here, not the handoff's, and `/design` itself (once it
+  ships real behavior) drafts against these names.
 - **Task calibration**: `/plan` produces 3-8 tasks per plan; <3 is too big to
   verify, >8 is fragmenting or the feature itself is `TOO BIG`.
 - **PR evidence table** (handoff §5.4): promotes each task's Done-means into

@@ -35,24 +35,55 @@ command that produced it.
    (7 authored sections, contract-canonical headings, each with a
    `Consumer:` line; the branch-scoping fork recorded with its options
    table and a marked `(recommended): A`).
-4. **design-lint (Step 5).** Ran the real, currently-installed
-   `scripts/design-lint`:
+4. **design-lint (Step 5).** At the time this run was originally executed,
+   `scripts/design-lint` was still the M1 stub (`stub — no checks
+   implemented yet`, exit `0` unconditionally), so the call below only
+   exercised Step 5's *invocation*, not a real check:
    ```
    $ python3 scripts/design-lint docs/design/evidence-capture-branch-scoping.md
    design-lint: stub — no checks implemented yet (see jig milestone M2).
    exit code: 0
    ```
-   **Known, accepted limitation** (named rather than hidden — matches the
-   epic pre-mortem's own risk #2/#7): sibling story `design-lint` (issue
-   #9) has a design doc (`design-review` verdict `PROCEED TO PLAN`,
-   confirmed via `gate-ledger work-get`) but no build yet, so
-   `scripts/design-lint` in this worktree is still the M1 stub that exits
-   `0` unconditionally. This run therefore exercises Step 5's *call*, and
-   the *fix-before-viva* branch is documented and tested in `SKILL.md`/
-   `test_design_skill.py`, but a genuine nonzero-then-fix cycle against a
-   real linter could not be exercised here — that requires issue #9 to
-   ship first, exactly as this story's own design doc (Alternatives
-   considered #4, Operational readiness) already anticipated.
+   **Corrected during acceptance fix-and-retry:** that stub framing is now
+   stale. Issue #9's `design-lint` shipped for real
+   (`cf6b2fb`/`docs/design/design-lint.md`) and was subsequently reconciled
+   to `design-doc-contract.md`'s seven section names by the sibling
+   `design-lint-reconcile` story (`docs/design/design-lint-reconcile.md`,
+   merged) — both land in this branch's own merge-base. The original
+   demonstration target (`docs/design/evidence-capture-branch-scoping.md`)
+   is gone (`docs/design/` is gitignored and it was never staged), so the
+   real linter is re-verified here directly against this story's own real,
+   currently-tracked design doc instead, exercising both halves of Step 5's
+   0/1/2 contract for real:
+   ```
+   $ uv run --no-project --python 3.11 python3 scripts/design-lint \
+       --doc docs/design/design-skill.md --repo .
+   design-lint: docs/design/design-skill.md — clean pass (5 checks, 0 violations)
+   exit code: 0
+   ```
+   And a genuine nonzero-then-fix cycle, run against a scratch copy of the
+   same doc with its `## Open questions` heading mangled to `## Open
+   Question` (a real, mechanically-detected violation, not simulated
+   output):
+   ```
+   $ uv run --no-project --python 3.11 python3 scripts/design-lint \
+       --doc <scratch>/design-skill-mangled.md --repo .
+   [FAIL] section count and vocabulary: section 'Open Question' does not match design-doc-contract.md's seven required section names
+   [FAIL] section count and vocabulary: missing required section 'Open questions'
+   design-lint: <scratch>/design-skill-mangled.md — 2 violation(s) across 1 check(s)
+   exit code: 1
+   $ # heading restored, re-linted per Step 5's "fixed and re-linted before Step 6" rule
+   $ uv run --no-project --python 3.11 python3 scripts/design-lint \
+       --doc <scratch>/design-skill-mangled.md --repo .
+   design-lint: <scratch>/design-skill-mangled.md — clean pass (5 checks, 0 violations)
+   exit code: 0
+   ```
+   This demonstrates Step 5's "calls the real design-lint; a lint failure
+   is fixed before viva starts" criterion end-to-end against the real,
+   reconciled script, not only unit-tested via string assertions in
+   `test_design_skill.py`. The viva-loop demonstration below (Step 6) is
+   unaffected by this correction — it ran against a real, uncorrupted,
+   already-lint-passable doc.
 5. **viva loop (Step 6, case 1 — brand-new session).** The doc had no
    `## Revision History` heading, so this is case 1, not a resume — no
    `--prior-input`/`--prior-verdicts`. Handed off in the *same* browser

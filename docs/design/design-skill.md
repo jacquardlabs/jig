@@ -447,18 +447,32 @@ deployed service, no data migration.
   the workaround's cost is felt over more than one invocation. Not filed
   here; filing it is a build- or post-build-phase judgment call, not a
   design-time one.
-- **`DESIGN.md`'s Formatting section is stale against this design's own
-  ruling** (see the section-heading fork in Proposed design): it still
-  names the handoff-literal seven names as the canonical convention, while
-  this doc and all six of its predecessors use `design-doc-contract.md`'s
-  seven instead. `DESIGN.md`'s own header already anticipates exactly this
-  kind of correction ("re-run `/extract-design-system` once M2–M6 land
-  real implementations... point the Vocabulary table's 'source of truth'
-  column at each `SKILL.md` instead of the handoff") — flagged here for a
-  future `/deep-review interface` pass or a `/finish`-time decision patch,
-  not fixed by this design doc directly (out of this story's own
-  jurisdiction; a context-doc edit is `/finish` Step 4's or `/deep-review`'s
-  job, never a design doc's).
+- **Resolved during acceptance fix-and-retry, not deferred as originally
+  planned.** This bullet originally read: `DESIGN.md`'s Formatting section
+  is stale against this design's own ruling, flagged for a future
+  `/deep-review interface` pass or a `/finish`-time decision patch, not
+  fixed by this design doc directly. That deferral turned out to be unsafe
+  — this story's own Step 5 hard-depends on `design-lint` (which cites
+  `DESIGN.md` as its authority) accepting output drafted against the
+  contract-canonical seven, so leaving `DESIGN.md` stale meant the happy
+  path could never reach `DESIGNED` once `design-lint` shipped for real.
+  `DESIGN.md`'s "Design doc structure" line has been updated in place (same
+  fix cycle as this note) to name the contract-canonical seven, matching
+  this doc's own ruling instead of the handoff's.
+- **Also resolved during acceptance fix-and-retry, not still open as
+  originally recorded.** This bullet originally read: `scripts/design-lint`
+  (issue #9, sibling story, already merged) has not received the matching
+  patch, verified directly against a real invocation that reported 11
+  violations and exited `1`. That was already stale by the time it was
+  written — the sibling `design-lint-reconcile` story
+  (`docs/design/design-lint-reconcile.md`, merged) had already reconciled
+  `design-lint`'s `CANONICAL_SECTIONS`/`REQUIRED_SECTIONS` constants to
+  `design-doc-contract.md`'s seven, and remapped Checks 2–4's old
+  `Contracts`/`Assumptions`/`Experience` lookups to `Proposed design`/
+  `Problem & persona`/`User journey` respectively. A real invocation
+  against this doc now confirms the clean state directly:
+  `scripts/design-lint --doc docs/design/design-skill.md --repo .` reports
+  a clean pass (5 checks, 0 violations), exit `0`.
 - **The real target for this story's required end-to-end demonstration**
   (see Operational readiness) — `design-lint` (issue #9) is the strong
   build-phase recommendation, but the final choice is the build phase's,

@@ -65,7 +65,16 @@ helper (`scripts/_gitutil.py`) — reused, not reimplemented.
 | 2 | Usage error: the file doesn't exist or isn't readable, or it contains zero `### Task` headings at all (nothing to lint — the same fail-closed stance `verify` already takes on an empty items list: a document plan-lint can't find a single task in is a malformed input, not a vacuous PASS). |
 
 **Grammar validated.** The checkpoint block plan-lint parses is exactly the
-one `skills/build/SKILL.md` already consumes — reused, not reinvented:
+one `skills/build/SKILL.md` already consumes — reused, not reinvented. The
+one addition this design makes explicit — because plan-lint's own
+method-existence check needs it and `skills/build/SKILL.md`'s existing
+template never named it — is what goes *inside* the tier parenthetical: the
+tier word itself (checked against the closed enum), and, for `script` /
+`test-backed` items only, a backtick-quoted repo-relative method path
+immediately after it. That path is also exactly what `/build`'s Step 2.5
+Foreman reads to transcribe each item's `command` into `verify`'s items
+file — one annotation, read by both plan-lint and `/build`, never two
+competing ideas of where the checkable path lives:
 
 ```
 ### Task N — <title>
@@ -76,10 +85,22 @@ Do:         ...
 Not here:   ...
 
 Done means:
-1. [cap|hold]  <behavior text>          (tier: script|test-backed|probe)
+1. [cap|hold]  <behavior text>          (tier: script `scripts/plan-lint`)
+2. [cap|hold]  <behavior text>          (tier: test-backed `tests/test_plan_lint.py`)
+3. [cap|hold]  <behavior text>          (tier: probe)
 ...
 Evidence: ...
 ```
+
+A `probe` item carries no backtick path in its tier parenthetical — per the
+method-existence check below, there's no pre-existing repo file to name;
+its concrete check is stated in the item's own behavior text instead. This
+same grammar is this story's own in-scope update to
+`skills/build/SKILL.md`'s Done-means template line (today just
+`` (tier: script|test-backed|probe) ``, the alternation-only form with no
+method path at all) and to DESIGN.md's Formatting section (today silent on
+the annotation's internal shape) — not a plan-lint-only convention living
+in this doc alone. See "Schema lands in two places, not one" below.
 
 Task splitting follows `/build`'s own Step 1.4 rule verbatim: read to each
 `### Task N — <title>` heading, stop accumulating at the next `### `
@@ -122,18 +143,21 @@ three separate ad hoc parsers:
    pre-existing, so there is no repo-infra fact to check (mirrors
    `docs/design/build-scripts.md`'s own scoping: `verify` never invents
    what a probe observes). For each `script`/`test-backed` item, the tier
-   annotation's own backtick span (e.g., `` (script: `scripts/plan-lint`) ``)
-   must name a repo-relative path — a script or test file, not a full shell
-   invocation; constructing the actual runnable command from that path
-   stays the Foreman's own transcription job at build time, exactly as
-   `skills/build/SKILL.md` Step 2.5 already describes. That path must
-   either exist on disk today, **or** appear as a backtick-quoted or plain
-   substring inside an earlier task's own `Do:` line in the same document
-   (the "created by an earlier task" clause). No backtick span in a
-   `script`/`test-backed` tier annotation at all is a violation
-   (`method-not-found`) — an unnamed method can't be checked, and this
-   linter fails closed on "can't check" rather than passing it vacuously,
-   the same stance `verify` already takes on a malformed items file.
+   annotation's own backtick span (e.g., the
+   `` `scripts/plan-lint` `` in `` (tier: script `scripts/plan-lint`) `` —
+   the same "Grammar validated" format above, not a different keyword or
+   shape) must name a repo-relative path — a script or test file, not a
+   full shell invocation; constructing the actual runnable command from
+   that path stays the Foreman's own transcription job at build time,
+   exactly as `skills/build/SKILL.md` Step 2.5 already describes. That path
+   must either exist on disk today, **or** appear as a backtick-quoted or
+   plain substring inside an earlier task's own `Do:` line in the same
+   document (the "created by an earlier task" clause). No backtick span
+   immediately after the tier word in a `script`/`test-backed` item's
+   parenthetical at all is a violation (`method-not-found`) — an unnamed
+   method can't be checked, and this linter fails closed on "can't check"
+   rather than passing it vacuously, the same stance `verify` already takes
+   on a malformed items file.
 3. *LOAD-BEARING task cap concreteness.* "LOAD-BEARING" is not a new term —
    the handoff defines it once, for the inspector (§5.3, decision 8):
    "derived mechanically as 'has downstream dependents in the spine map';
@@ -201,6 +225,36 @@ handoff itself defers migration/dependency-bump fingerprints to dogfooding
 in the same spirit ("Draft during dogfooding"). Named here as a known gap
 rather than silently mishandled — see Open questions.
 
+**Schema lands in two places, not one.** This design doc dies at merge
+(this repo's own doc-lifecycle convention), so the tier-annotation grammar
+fixed above needs a home that outlives it, or the sibling `plan-skill`
+story and every future plan author are back to guessing. Landing
+`scripts/plan-lint` for this story therefore also lands, in the same
+branch, two small doc edits — in scope, not deferred:
+
+- **`skills/build/SKILL.md`'s Done-means template line** (currently
+  `` 1. [cap|hold]  <behavior>  ...  (tier: script|test-backed|probe) ``,
+  the bare alternation with no method path) gets the same
+  `` (tier: script `path`) `` / `` (tier: test-backed `path`) `` /
+  `` (tier: probe) `` shape this doc's "Grammar validated" section shows —
+  the exact string `/build`'s own Foreman already reads at Step 2.5 to
+  transcribe a `command`, made concrete instead of implicit.
+- **DESIGN.md's Formatting section** gets the same worked example added
+  under its existing checkpoint-block bullet, so the Vocabulary table's
+  `script` / `test-backed` / `probe` enum and the annotation's literal
+  on-the-page shape live in one place a human skimming DESIGN.md can see
+  together, rather than the enum in one document and the syntax nowhere.
+
+Neither edit touches `skills/build/SKILL.md`'s parsing behavior or Step
+1.4's heading-split logic — both are prompt-doc prose changes only, so
+`/build` (M4, frozen) still "consumes without modification" in the sense
+the epic goal means: no code, no mechanized script, changes. This is a
+distinct edit from the heading-*level* fix issue #23 names for the same
+file (see Out of scope) — that one changes `## Not-here follow-ups` to
+whatever level #23 settles on; this one only fills in the tier
+parenthetical's previously-unspecified internal grammar. The two land
+independently and don't conflict.
+
 ### Principle alignment
 
 "Judgment in the model, mechanics in scripts" is the whole story: every
@@ -243,16 +297,22 @@ the step this story makes real:
 - **The `/plan` skill itself** — inventory, dependency spine, checkpoint-
   block drafting, risk tagging, the viva loop. Separate story
   (`plan-skill`, deps on this one).
-- **Issue #23** (the Not-here-follow-ups heading-level fix, and updating
-  the two stale `##` references in `skills/build/SKILL.md` and
-  `skills/finish/SKILL.md`) and **issue #13** (UI-probe mechanization —
+- **Issue #23** (the Not-here-follow-ups heading-*level* fix, and updating
+  the two stale `##` heading-level references in `skills/build/SKILL.md`
+  and `skills/finish/SKILL.md`) and **issue #13** (UI-probe mechanization —
   whether a scripted Playwright probe or self-attestation, and the
   infra-inventory step that would check for it). Both are named in the
   epic ledger as `plan-skill`'s criteria, sourced from issues #11/#23/#13
   — not #12, this story's own source. plan-lint's heading-*text* match
   (any `#` depth) is a defensive property so this story doesn't need to
   change the day #23 lands elsewhere; it is not itself a ruling on what
-  heading level is correct.
+  heading level is correct. Not to be confused with the tier-annotation
+  grammar edit to `skills/build/SKILL.md`'s Done-means template line and
+  to DESIGN.md's Formatting section — a different edit to (partly) the
+  same file, named in-scope under "Schema lands in two places, not one"
+  above; #23 is about the `Not-here follow-ups` heading's `#` depth, this
+  story's schema edit is about the tier parenthetical's internal shape,
+  and the two don't overlap or conflict.
 - **Semantic or quality judgment of any kind** — whether a cap's stated
   behavior is actually correct, whether a drafted follow-up is well
   written, whether a `Rests on` assumption is really confirmed. Zero-model
@@ -325,7 +385,11 @@ step 5, or (later) a CI job — no deployed service, no data migration, no
 running process to monitor.
 
 - **Rollout**: replaces the M1 stub's body in place, same pattern as
-  `build-scripts`' and `finish-skill`'s own rollouts. No feature flag.
+  `build-scripts`' and `finish-skill`'s own rollouts, plus the two doc
+  edits named in "Schema lands in two places, not one" above
+  (`skills/build/SKILL.md`'s Done-means template line,
+  DESIGN.md's Formatting section) landing in the same branch. No feature
+  flag.
 - **Rollback**: `git revert` the commit that replaces the stub; nothing
   else in the repo currently calls `plan-lint` for real (`/plan` doesn't
   exist yet), so there is no live caller to break.

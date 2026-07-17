@@ -1,7 +1,7 @@
 {
   "name": "jig",
   "description": "jig — the build-execution plugin for Claude Code. Turns an approved design into a verified implementation through /design, /plan, /build, and /finish, with a coach for stuck loops. Fresh executor per task, script-verified, standalone-capable alongside studious.",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "author": {
     "name": "Jacquard Labs"
   },

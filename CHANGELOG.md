@@ -2,6 +2,59 @@
 
 <!-- version list -->
 
+## v1.4.0 (2026-07-17)
+
+### Build System
+
+- Foreman assembles replay bundle via evidence-capture (Task 2, replay bundle)
+  ([#78](https://github.com/jacquardlabs/jig/pull/78),
+  [`1a72f99`](https://github.com/jacquardlabs/jig/commit/1a72f997f98c8cbcaaa22be761d4f5ca2af37579))
+
+- Foreman names the Executor's dispatch model (Task 1, replay bundle)
+  ([#78](https://github.com/jacquardlabs/jig/pull/78),
+  [`1a72f99`](https://github.com/jacquardlabs/jig/commit/1a72f997f98c8cbcaaa22be761d4f5ca2af37579))
+
+- Foreman states unavailable when dispatch model can't be determined (Task 3)
+  ([#78](https://github.com/jacquardlabs/jig/pull/78),
+  [`1a72f99`](https://github.com/jacquardlabs/jig/commit/1a72f997f98c8cbcaaa22be761d4f5ca2af37579))
+
+- Step 1.5 names a defined path for a plan growing mid-session (Task 4)
+  ([#78](https://github.com/jacquardlabs/jig/pull/78),
+  [`1a72f99`](https://github.com/jacquardlabs/jig/commit/1a72f997f98c8cbcaaa22be761d4f5ca2af37579))
+
+### Documentation
+
+- Correct the model-attestation mechanism claim, justify bundle consolidation
+  ([#78](https://github.com/jacquardlabs/jig/pull/78),
+  [`1a72f99`](https://github.com/jacquardlabs/jig/commit/1a72f997f98c8cbcaaa22be761d4f5ca2af37579))
+
+- Revise replay-bundle.md per gate-design-review REVISE findings
+  ([#78](https://github.com/jacquardlabs/jig/pull/78),
+  [`1a72f99`](https://github.com/jacquardlabs/jig/commit/1a72f997f98c8cbcaaa22be761d4f5ca2af37579))
+
+- Sign off on PLAN.md for issue #34 (replay bundle)
+  ([#78](https://github.com/jacquardlabs/jig/pull/78),
+  [`1a72f99`](https://github.com/jacquardlabs/jig/commit/1a72f997f98c8cbcaaa22be761d4f5ca2af37579))
+
+- Sign off on replay-bundle.md ([#78](https://github.com/jacquardlabs/jig/pull/78),
+  [`1a72f99`](https://github.com/jacquardlabs/jig/commit/1a72f997f98c8cbcaaa22be761d4f5ca2af37579))
+
+- Sign off revision round 2 (viva) ([#78](https://github.com/jacquardlabs/jig/pull/78),
+  [`1a72f99`](https://github.com/jacquardlabs/jig/commit/1a72f997f98c8cbcaaa22be761d4f5ca2af37579))
+
+- Sign off revision round 3 (viva) ([#78](https://github.com/jacquardlabs/jig/pull/78),
+  [`1a72f99`](https://github.com/jacquardlabs/jig/commit/1a72f997f98c8cbcaaa22be761d4f5ca2af37579))
+
+- State the model-field's unverified-inherit limit honestly, scope corroboration to cctx/#33
+  ([#78](https://github.com/jacquardlabs/jig/pull/78),
+  [`1a72f99`](https://github.com/jacquardlabs/jig/commit/1a72f997f98c8cbcaaa22be761d4f5ca2af37579))
+
+### Features
+
+- Persist a replay bundle per build task ([#78](https://github.com/jacquardlabs/jig/pull/78),
+  [`1a72f99`](https://github.com/jacquardlabs/jig/commit/1a72f997f98c8cbcaaa22be761d4f5ca2af37579))
+
+
 ## v1.3.0 (2026-07-17)
 
 ### Features

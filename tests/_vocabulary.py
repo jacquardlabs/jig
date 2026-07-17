@@ -62,6 +62,20 @@ PLAN_VOCABULARY_CONCEPTS = frozenset(
 # this skill discusses.
 DESIGN_VOCABULARY_CONCEPTS = frozenset({"/design verdict"})
 
+# Vocabulary-table concepts the coach (skills/coach/SKILL.md) *reads* while
+# assessing pipeline state -- the three session-verdict enums it can meet
+# in conversation (/design's, /plan's, /build's -- the session-verdict
+# row's own consumer cell names the coach) plus the script-written task
+# status suffixes it reads from PLAN.md headings. Deliberately not
+# /finish's verdict enum (the coach dispatches /finish but never consumes
+# its MERGE/PR/KEEP/DISCARD outcome), the inspector's, or the risk tags
+# (a /plan-to-/build contract the coach never inspects). The coach has no
+# verdict enum of its own by design (docs/design/coach-skill.md, Out of
+# scope) -- there is no coach-owned row to derive.
+COACH_VOCABULARY_CONCEPTS = frozenset(
+    {"/design verdict", "/plan verdict", "/build task status", "/build session verdict"}
+)
+
 
 def _section(markdown: str, heading: str) -> str:
     """Return the text of a `## {heading}` section, up to the next `## `."""
@@ -195,5 +209,19 @@ def derive_design_vocabulary(design_md: str) -> tuple[str, ...]:
     """
     seen: dict[str, None] = {}
     for token in _vocabulary_table_tokens(design_md, DESIGN_VOCABULARY_CONCEPTS):
+        seen.setdefault(token, None)
+    return tuple(seen)
+
+
+def derive_coach_vocabulary(design_md: str) -> tuple[str, ...]:
+    """The vocabulary the coach reads while assessing pipeline state
+    (DESIGN.md: Vocabulary table's `/design verdict`, `/plan verdict`,
+    `/build task status`, and `/build session verdict` rows), derived from
+    `design_md`'s text rather than an independent, hand-maintained tuple --
+    same rationale as `derive_jig_vocabulary`, scoped to what
+    `skills/coach/SKILL.md` discusses.
+    """
+    seen: dict[str, None] = {}
+    for token in _vocabulary_table_tokens(design_md, COACH_VOCABULARY_CONCEPTS):
         seen.setdefault(token, None)
     return tuple(seen)

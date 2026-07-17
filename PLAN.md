@@ -44,7 +44,7 @@ Done means:
 2. [hold] the existing dispatch-timestamp and boundary-line phrase assertions in `tests/test_build_skill.py` still pass unchanged                                                                             (tier: test-backed `tests/test_build_skill.py`)
 Evidence: n/a
 
-### Task 2 — Foreman assembles and writes the replay bundle via evidence-capture's existing artifact mechanism
+### Task 2 — Foreman assembles and writes the replay bundle via evidence-capture's existing artifact mechanism [PASS]
 Why now:    Task 1's recorded model is the last of four fields the bundle needs; this task wires all four into the one write path the design doc calls for.
 Read first: `skills/build/SKILL.md`, `scripts/evidence-capture`
 Rests on:   Task 1 (needs the recorded model value from Task 1's own dispatch-time addition)

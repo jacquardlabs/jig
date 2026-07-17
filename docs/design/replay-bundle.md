@@ -26,6 +26,21 @@ jacquardlabs tooling); neither is written as "a jig maintainer optimizing
 model cost," and this design deliberately doesn't fabricate that as a new
 one — see Open questions.
 
+**Resolved at `/gate-design-review`, not deferred:** the reviewer's own
+SHOULD FIX asked whether building bundle-before-harness is deliberate
+sequencing or accidental scope. It's deliberate, and issue #34 itself
+already says so — its own "Feeds" section states plainly that "the
+cross-cutting replay harness... needs these bundles for its first loop,"
+meaning the harness *cannot* be designed against real inputs until bundles
+already exist to feed it. Write-ahead-of-read isn't a gap here; it's the
+only order this dependency can run in. That doesn't make the indirection
+free, though — pre-mortem risk #2 (this schema going stale before #41 ever
+reads it) is the real cost of that ordering, and the safeguard is to bound
+it to an existing checkpoint rather than "revisit someday": the next
+`/deep-review architecture` pass (CLAUDE.md's own quarterly-or-pre-major-
+feature cadence) should confirm at least one bundle has ever been read by
+anything before assuming this schema still holds.
+
 ## Proposed design
 
 Consumer: product-reviewer Q2/Q6; `/plan`'s spine-building step.
@@ -44,20 +59,40 @@ carrying:
 - the verification command(s) actually run and their result — already
   sitting in the `verify:results` artifact `evidence-capture` captures
   today; this design promotes it into the bundle, it doesn't re-derive it
-- which model executed the task's fresh executor
+- which model the Foreman dispatched the Executor on
 
 That last field needs a real, small addition to `/build` itself, not just
 to `evidence-capture`: today `skills/build/SKILL.md` has no step that
-records which model a dispatched executor ran on at all (confirmed
+records which model a dispatched Executor ran on at all (confirmed
 directly — grepped the file for "model"; zero hits describing this).
 `/build` gains a small new step, at dispatch time, naming the model it's
-about to hand the fresh executor — mirroring how step 1.5 already states
+about to hand the fresh Executor — mirroring how step 1.5 already states
 the computed load-bearing set plainly before proceeding, rather than
 leaving either fact implicit. The exact hand-off mechanism from that new
 step into `evidence-capture`'s own capture call is left to `/plan`'s own
 checkpoint-block breakdown (see Open questions) — out of this doc's
 altitude per the design-doc-contract's own implementation-detail
 exclusion.
+
+**Resolved, not deferred: this is not the self-attestation "nothing signs
+off on itself" rules out.** The reviewer's other SHOULD FIX read the
+`model` field as executor attestation — the same category that principle
+targets. It isn't the same category. "Nothing signs off on itself" is
+about a *judgment* a task can't be trusted to make about its own work
+(did I actually pass, is my own test meaningful) — it's why `status-flip`
+never lets the model write its own `PASS`. The `model` field carries no
+judgment at all: it's the literal value of a parameter the Foreman itself
+sets, in its own immediately-preceding tool call, before the Executor it
+names ever runs. That's structurally the same kind of fact `verify:results`
+already records without a second script re-deriving it — the command that
+ran, logged as what it was, not re-judged. The Foreman recording which
+model it just dispatched is the same class of self-log, not a self-grade.
+Given that, the expected `unavailable` rate is near-zero in ordinary
+operation — the field names a parameter of an action the Foreman took
+moments earlier, not something recovered indirectly from elsewhere; the
+only legitimate `unavailable` case is a dispatch path where the effective
+model was never explicitly set and truly isn't introspectable, not routine
+operation.
 
 Only the task's **final, PASS-reaching attempt** is captured — not the
 full `FIX`/`RESAMPLE` retry history a task may have gone through. No bundle
@@ -82,9 +117,10 @@ byproduct file, never something `/finish` surfaces to a human reviewer.
 The one visible change: `/build`'s own transcript now states which model
 it dispatched for each task, where today it says nothing.
 
-**Failure path:** if the dispatching session can't determine which model
-it handed the fresh executor (an invocation context where the model name
-genuinely isn't recoverable), the bundle still gets written — the
+**Failure path:** if the Foreman can't determine which model it handed
+the Executor (an invocation context where the model name genuinely isn't
+recoverable — see Proposed design for why this should be rare), the
+bundle still gets written — the
 `model` field is recorded as `unavailable`, not a reason for
 `evidence-capture` to refuse the whole capture. A replay bundle missing
 one field is still useful evidence of the task's inputs and verification
@@ -134,6 +170,14 @@ path.
    own record) for a benefit — a richer future eval signal — the harness's
    first loop doesn't need; it only needs one task's final input/
    verification pairing.
+4. **Refuse the `model` field entirely, treating any self-reported value
+   as untrustworthy the same way a task's own PASS/FAIL claim is.**
+   Rejected: this conflates two different things "nothing signs off on
+   itself" separates — a *judgment* about one's own work (what that
+   principle targets) and a *fact* about a parameter just set in one's own
+   preceding action (what this field is). Refusing it would throw away the
+   one datum the entire feature exists to capture, over a category error
+   about what the principle actually rules out.
 
 ## Operational readiness
 
@@ -167,15 +211,19 @@ Consumer: the human sponsor; the next `/design` revision round.
   `viva-qa` silently drops a submitted `note` when no `choice` accompanies
   it — confirmed directly (a comment clarifying that cctx#193 had closed
   never appeared in `.viva/answers.json`, both recorded notes were empty
-  strings). Worth a viva issue; not fixed by this design.
-- PRODUCT.md's two documented personas don't cleanly name "whoever
-  eventually runs the replay harness and interprets its findings" (see
-  Problem & persona). This design anchors on the primary persona's
-  indirect benefit rather than inventing a third one — worth revisiting
-  once the harness (#41) actually has a real user.
+  strings). Already tracked: jacquardlabs/viva#121 (same root cause, a
+  narrower trigger); this design's repro is recorded there as a comment,
+  broadening its scope. Not fixed by this design.
+- **Resolved at `/gate-design-review`:** PRODUCT.md's two documented
+  personas don't cleanly name "whoever eventually runs the replay harness
+  and interprets its findings" — see Problem & persona's own resolution
+  (issue #34's stated "Feeds" dependency makes the sequencing intentional,
+  bounded by the next `/deep-review architecture` pass, not left open).
 
 ---
 
 ## Revision History
+
+Signed off via viva review — 1 round, 8 sections, 0 revised. 2026-07-16
 
 Signed off via viva review — 1 round, 8 sections, 0 revised. 2026-07-16

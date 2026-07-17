@@ -168,6 +168,30 @@ may appear anywhere in the block. No `Risk:` line means `LOW` — see Cadence.
    — every one of step 2.6's skip notes and dispatches reasons from this
    one fixed set, never a fresh per-task guess.
 
+   **Plan growth mid-session.** The invariant above ("it never changes
+   mid-loop") governs the ordinary run; it does not leave undefined what
+   happens when `PLAN.md` itself grows after task 1 is ever dispatched — a
+   new task appended whose own `Rests on:` line names a task that already
+   reached `PASS`. That specific amendment is this run's one sanctioned
+   trigger for touching the load-bearing set again: the moment you read a
+   newly appended task block whose `Rests on:` line names an
+   already-`PASS`ed task, recompute the load-bearing set immediately, over
+   every task block now in hand, before dispatching that new task's own
+   executor — never a general "recompute on every step" habit, only this
+   one amendment-triggered case. Any task whose status flips from leaf to
+   load-bearing under that recompute, having already reached `PASS`
+   without an Inspector ever having been dispatched against it (a leaf
+   task skips step 2.6 entirely), gets a retroactive catch-up Inspector
+   dispatched now, scoped to exactly that task's own already-existing
+   commit(s) — the same three-lens jurisdiction step 2.6 already names —
+   run before the new dependent task's own executor is dispatched. Capture
+   that catch-up Inspector's report under its own sanctioned evidence-dir
+   naming convention, `<task>-retroactive-inspection`, never the task's
+   own original evidence folder: `evidence-capture` always stamps against
+   current `HEAD`, so reusing the task's own original evidence folder
+   would misdate the retroactive inspection against a later, unrelated
+   commit made after that task's own `PASS`.
+
 ## Step 2 — Per task, in spine order
 
 For each task block, in order:
@@ -207,6 +231,18 @@ For each task block, in order:
    (see step 2.5 for why). Re-capture a fresh one for every dispatch,
    including a Failure-routine retry (see below) — each attempt gets its
    own floor, not the task's first attempt's.
+
+   **Name this attempt's dispatch model.** If this dispatch passes an
+   explicit model override, state it plainly as `override: <model>`.
+   Otherwise this dispatch inherits the Foreman's own resolved session
+   model — the same model named in your own system prompt — so state it
+   plainly as `inherited: <model>`. If the model genuinely can't be
+   determined at all, state it plainly as `unavailable` — a third case
+   beside `override`/`inherited`, per the design's own documented
+   degradation path (`docs/design/replay-bundle.md`). Name this before you
+   launch the subagent, the same plain-statement discipline step 1's
+   load-bearing-set computation already uses ("state the computed set
+   plainly before proceeding").
 3. **Execute.** The executor works under `task-execution-discipline`'s
    three pillars (TDD-per-capability, YAGNI bounded by `Not here`,
    verification-before-completion) and commits its own change as its last
@@ -361,6 +397,28 @@ For each task block, in order:
      copy gets a brand-new mtime at copy time, which happens here, after
      the executor's commit — so the copy clears the same gate the original
      never could.
+   - **Assemble the replay bundle at a scratch path — never inside the
+     worktree first.** Write one JSON object to
+     `<scratch-path>/replay-bundle.json` naming this task's own `task_id`,
+     its title, this task's own checkpoint block as raw verbatim text, and
+     the verify command(s) and result already sitting in this task's own
+     `results.json` — plus step 2.2's recorded dispatch model (the
+     `inherited: <model>` / `override: <model>` value named at dispatch
+     time), the last of the four fields the bundle needs. If step 2.2
+     recorded `unavailable` for this attempt, the bundle is still
+     assembled and written the same way — `model` recorded as
+     `unavailable`, never a reason for this call to refuse the whole
+     `evidence-capture` capture (the design's own Failure path,
+     `docs/design/replay-bundle.md`). The replay
+     harness itself (issue #41) and issue #33's richer identity fields
+     (`run_id`/`step_id`/`parent_step_id`/`skill`/`role`/`routing_reason`)
+     stay out of scope here — none of those exist in this session model
+     today — and only the final attempt this hook point ever sees is
+     captured, never a full attempt-by-attempt retry history. Add this
+     bundle to the same call `verify:results` already uses: one more
+     `--artifact build:replay-bundle=<scratch-path>/replay-bundle.json`
+     flag, no second `evidence-capture` invocation, no new commit —
+     exactly how a `probe` item's own artifact already rides that call.
    - Call `scripts/evidence-capture --task <id> --repo <worktree> --artifact verify:results=<scratch-path>/results.json [...]`
      — `verify:results` plus one `--artifact` per probe item's *copy* from
      above, pointing `--artifact` straight at each scratch-path file, never

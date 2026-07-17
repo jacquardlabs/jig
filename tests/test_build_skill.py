@@ -243,6 +243,64 @@ class TestBuildSkillBody(unittest.TestCase):
         self.assertPhraseIn("Never the executor's own reported commit SHA")
         self.assertPhraseIn("capture a fresh dispatch timestamp per step 2.2 for each one")
 
+    def test_dispatch_names_the_executor_model_beside_the_timestamp_capture(self) -> None:
+        # Task: Foreman records which model it dispatched the Executor on --
+        # the bundle's one decisive field. Step 2's Dispatch item must name,
+        # immediately beside its existing dispatch-timestamp capture, which
+        # model the Executor runs on: an explicit override if one is passed,
+        # otherwise the Foreman's own resolved session model (the one named
+        # in its own system prompt) since a no-override dispatch inherits
+        # it -- stated plainly, mirroring step 1.5's own
+        # "state the computed set plainly before proceeding" pattern.
+        self.assertPhraseIn("Name this attempt's dispatch model")
+        self.assertPhraseIn("an explicit model override")
+        self.assertPhraseIn("state it plainly as `override: <model>`")
+        self.assertPhraseIn(
+            "this dispatch inherits the Foreman's own resolved session model"
+        )
+        self.assertPhraseIn("the same model named in your own system prompt")
+        self.assertPhraseIn("state it plainly as `inherited: <model>`")
+
+        # Immediately beside the existing dispatch-timestamp capture -- not
+        # merely present somewhere in the body.
+        flat_timestamp_phrase = _normalize_ws("Capture this attempt's dispatch timestamp")
+        flat_model_phrase = _normalize_ws("Name this attempt's dispatch model")
+        timestamp_idx = self.flat_body.index(flat_timestamp_phrase)
+        model_idx = self.flat_body.index(flat_model_phrase)
+        self.assertLess(
+            abs(model_idx - timestamp_idx),
+            700,
+            "dispatch-model instruction is not immediately beside the "
+            "existing dispatch-timestamp capture instruction",
+        )
+
+    def test_dispatch_model_names_unavailable_case_beside_override_and_inherited(self) -> None:
+        # Task 3 (issue #34 follow-up, /gate-acceptance SHOULD FIX): the
+        # design doc's own Failure path (docs/design/replay-bundle.md) names
+        # a third dispatch-model case -- when the model genuinely can't be
+        # determined at all, the Foreman states it plainly as `unavailable`,
+        # immediately beside the existing `override`/`inherited` cases.
+        self.assertPhraseIn(
+            "If the model genuinely can't be determined at all, state it "
+            "plainly as `unavailable`"
+        )
+
+        # Immediately beside the existing inherited-case phrase -- not
+        # merely present somewhere else in the body.
+        flat_inherited_phrase = _normalize_ws("state it plainly as `inherited: <model>`")
+        flat_unavailable_phrase = _normalize_ws(
+            "If the model genuinely can't be determined at all, state it "
+            "plainly as `unavailable`"
+        )
+        inherited_idx = self.flat_body.index(flat_inherited_phrase)
+        unavailable_idx = self.flat_body.index(flat_unavailable_phrase)
+        self.assertLess(
+            abs(unavailable_idx - inherited_idx),
+            200,
+            "the `unavailable` third case is not immediately beside the "
+            "existing `override`/`inherited` cases",
+        )
+
     def test_verify_exit_2_is_not_a_task_fail(self) -> None:
         self.assertPhraseIn("Exit code 2 from `verify` is not a task FAIL")
         self.assertPhraseIn("does **not** count against the Failure routine's two-failure budget")
@@ -306,6 +364,73 @@ class TestBuildSkillBody(unittest.TestCase):
             "reads it, never requires it to live in the worktree either"
         )
 
+    def test_step_7_assembles_replay_bundle_at_scratch_path_before_evidence_capture(self) -> None:
+        # Task (replay bundle, issue #34): the Foreman assembles one JSON
+        # replay-bundle object at a scratch path -- never inside the
+        # worktree first, matching issue #45's clean-tree discipline
+        # step 5's own items/results files already follow -- before the
+        # existing evidence-capture call, naming all four fields the
+        # bundle needs: task_id, title, the task's own checkpoint block as
+        # raw verbatim text, and the verify command(s)/result already
+        # sitting in results.json.
+        self.assertPhraseIn(
+            "Assemble the replay bundle at a scratch path — never inside "
+            "the worktree first"
+        )
+        self.assertPhraseIn("`<scratch-path>/replay-bundle.json`")
+        self.assertPhraseIn("this task's own `task_id`")
+        self.assertPhraseIn("its title")
+        self.assertPhraseIn("this task's own checkpoint block as raw verbatim text")
+        self.assertPhraseIn(
+            "the verify command(s) and result already sitting in this "
+            "task's own `results.json`"
+        )
+        self.assertPhraseIn("step 2.2's recorded dispatch model")
+
+        # Assembled before the existing evidence-capture call, not after --
+        # Done means item 1's "before the existing evidence-capture call".
+        flat_assemble_phrase = _normalize_ws(
+            "Assemble the replay bundle at a scratch path"
+        )
+        flat_evidence_call_phrase = _normalize_ws(
+            "Call `scripts/evidence-capture --task <id> --repo <worktree> "
+            "--artifact verify:results=<scratch-path>/results.json"
+        )
+        assemble_idx = self.flat_body.index(flat_assemble_phrase)
+        evidence_call_idx = self.flat_body.index(flat_evidence_call_phrase)
+        self.assertLess(
+            assemble_idx,
+            evidence_call_idx,
+            "replay-bundle assembly instruction must precede the existing "
+            "evidence-capture call in step 7",
+        )
+
+    def test_step_7_replay_bundle_rides_the_existing_evidence_capture_call(self) -> None:
+        # Task (replay bundle, issue #34): exactly one more --artifact flag
+        # on the same evidence-capture call verify:results already uses --
+        # no second invocation, matching exactly how a probe item's own
+        # artifact already rides that call.
+        self.assertPhraseIn(
+            "--artifact build:replay-bundle=<scratch-path>/replay-bundle.json"
+        )
+        self.assertPhraseIn("no second `evidence-capture` invocation")
+        self.assertPhraseIn("exactly how a `probe` item's own artifact already rides that call")
+
+    def test_step_7_bundle_assembly_writes_unavailable_rather_than_refusing_capture(self) -> None:
+        # Task 3: step 7's bundle-assembly instruction must reference the
+        # unavailable case so a Foreman hitting it still assembles and
+        # writes the bundle -- model recorded as `unavailable`, never a
+        # reason to refuse the whole evidence-capture call (the design
+        # doc's own Failure path, docs/design/replay-bundle.md).
+        self.assertPhraseIn(
+            "If step 2.2 recorded `unavailable` for this attempt, the "
+            "bundle is still assembled and written the same way"
+        )
+        self.assertPhraseIn(
+            "never a reason for this call to refuse the whole "
+            "`evidence-capture` capture"
+        )
+
     def test_inspector_is_no_longer_a_no_op(self) -> None:
         # Story rough-in-inspector (issue #15) replaced the prior no-op --
         # this is a regression guard against ever reintroducing it.
@@ -330,6 +455,63 @@ class TestBuildSkillBody(unittest.TestCase):
             "`Rests on:` line names task N"
         )
         self.assertPhraseIn("otherwise task N is a **leaf**")
+
+    def test_step_1_5_names_plan_growth_recompute_trigger(self) -> None:
+        # Task 4 (issue #47 gate-audit re-audit finding, Important/
+        # architecture): step 1.5's own text must name what happens when
+        # PLAN.md grows mid-session -- a new task's `Rests on:` line naming
+        # an already-`PASS`ed task -- as an immediate load-bearing-set
+        # recompute, before that new task's own executor is dispatched.
+        # Also confirms the recompute stays scoped to this one
+        # amendment-triggered case, not a generalized "recompute on every
+        # step" mechanism (this task's own `Not here`).
+        self.assertPhraseIn(
+            "a new task appended whose own `Rests on:` line names a task "
+            "that already reached `PASS`"
+        )
+        self.assertPhraseIn(
+            "recompute the load-bearing set immediately, over every task "
+            "block now in hand, before dispatching that new task's own "
+            "executor"
+        )
+        self.assertPhraseIn(
+            'never a general "recompute on every step" habit, only this '
+            "one amendment-triggered case"
+        )
+
+    def test_step_1_5_names_retroactive_catch_up_inspector(self) -> None:
+        # Task 4: a task whose status flips from leaf to load-bearing under
+        # the recompute, having already reached PASS without an Inspector,
+        # gets a retroactive catch-up Inspector dispatched now, scoped to
+        # that task's own existing commit(s), before the new dependent
+        # task's own executor is dispatched.
+        self.assertPhraseIn(
+            "Any task whose status flips from leaf to load-bearing under "
+            "that recompute, having already reached `PASS` without an "
+            "Inspector ever having been dispatched against it"
+        )
+        self.assertPhraseIn(
+            "gets a retroactive catch-up Inspector dispatched now, scoped "
+            "to exactly that task's own already-existing commit(s)"
+        )
+        self.assertPhraseIn(
+            "run before the new dependent task's own executor is dispatched"
+        )
+
+    def test_step_1_5_names_retroactive_inspection_evidence_dir_convention(self) -> None:
+        # Task 4: the sanctioned evidence-dir naming convention for a
+        # retroactive catch-up inspection, `<task>-retroactive-inspection`,
+        # plus why the task's own original evidence folder isn't reused --
+        # evidence-capture always stamps against current HEAD, so reusing
+        # the original folder would misdate the inspection against a later,
+        # unrelated commit.
+        self.assertPhraseIn("`<task>-retroactive-inspection`")
+        self.assertPhraseIn("never the task's own original evidence folder")
+        self.assertPhraseIn(
+            "`evidence-capture` always stamps against current `HEAD`, so "
+            "reusing the task's own original evidence folder would misdate "
+            "the retroactive inspection against a later, unrelated commit"
+        )
 
     def test_leaf_task_skip_is_stated_not_silent(self) -> None:
         # Epic pre-mortem risk #6: a silent skip defeats "none silent."

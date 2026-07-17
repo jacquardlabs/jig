@@ -1,8 +1,10 @@
 # Plan: persist a replay bundle per build task (issue #34)
 
-Spine: Task 1 -> Task 2 -> Task 3 (Task 2 rests on Task 1's recorded model
-value; Task 3 rests on both, closing the `unavailable`-fallback gap
-`/gate-acceptance`'s product review found between the two)
+Spine: Task 1 -> Task 2 -> Task 3 -> Task 4 (Task 2 rests on Task 1's
+recorded model value; Task 3 rests on both, closing the `unavailable`-
+fallback gap `/gate-acceptance`'s product review found between the two;
+Task 4 is independent of Tasks 1-3's own shipped behavior — a `/build`-
+mechanics fix `/gate-audit`'s re-audit found, applied to the same branch)
 
 Inventory finding, stated plainly before drafting: `scripts/evidence-capture`
 needs **zero code changes**. Its `--artifact PRODUCER:LABEL=PATH` mechanism
@@ -70,6 +72,20 @@ Done means:
 1. [cap]  step 2's dispatch-model instruction names a third case, `unavailable`, for when the model genuinely can't be determined, immediately beside the existing `override`/`inherited` cases           (tier: test-backed `tests/test_build_skill.py`)
 2. [cap]  step 7's bundle-assembly instruction states that an `unavailable` value is written into the bundle rather than refusing the `evidence-capture` call                                              (tier: test-backed `tests/test_build_skill.py`)
 3. [hold] the existing step 2 and step 7 phrase assertions in `tests/test_build_skill.py` (the `override`/`inherited` cases, the four-field bundle, the single `--artifact` flag) still pass unchanged        (tier: test-backed `tests/test_build_skill.py`)
+Evidence: n/a
+
+### Task 4 — Foreman's step 1.5 gains a defined path for a plan growing mid-session
+Why now:    `/gate-audit`'s re-audit found (Important, architecture) that step 1.5's "compute once... it never changes mid-loop" invariant has no defined path for what this exact session did — appending Task 3 with a `Rests on:` line that retroactively made the already-`PASS`ed, leaf-classified Task 2 load-bearing. The catch-up inspection performed this session held by human diligence, not by any mechanism `/build` itself provides, and invented an ad hoc evidence-dir naming convention (`2-retroactive-inspection`) with no sanction anywhere in `skills/build/SKILL.md`.
+Read first: `skills/build/SKILL.md`
+Rests on:   n/a (a `/build`-mechanics fix, independent of Tasks 1-3's own replay-bundle behavior)
+Do:         amend step 1.5's own text to name the plan-growth case explicitly: if `PLAN.md` is amended after task 1 is ever dispatched — a new task appended whose own `Rests on:` line names a task that already reached `PASS` — recompute the load-bearing set immediately, before dispatching the new task's own executor. Any task whose status changes from leaf to load-bearing under the recompute, having already reached `PASS` without an Inspector, gets a retroactive catch-up Inspector dispatched now, scoped to that task's own already-existing commit(s), before the new dependent task's own executor is dispatched. Capture the catch-up Inspector's report under a sanctioned evidence-dir naming convention, `<task>-retroactive-inspection` — `evidence-capture` always stamps against current `HEAD`, so reusing the task's own original evidence folder would misdate the inspection against a later, unrelated commit.
+Not here:   adopting the auditor's other named option (forbidding a `Rests on:` back-reference to an already-`PASS`ed task) — this task keeps plans free to grow, matching this session's own successful workaround, rather than restricting it; any change to how `/plan` itself proposes a spine; a generalized "recompute on every step" mechanism beyond the specific amendment-triggered case named here.
+
+Done means:
+1. [cap]  step 1.5's text names the plan-growth case: a new task's `Rests on:` line naming an already-`PASS`ed task triggers an immediate load-bearing-set recompute, before that new task's own executor is dispatched           (tier: test-backed `tests/test_build_skill.py`)
+2. [cap]  step 1.5's text states that a task whose status changes from leaf to load-bearing under the recompute, having already reached `PASS` without an Inspector, gets a retroactive catch-up Inspector dispatched now, scoped to that task's own existing commit(s)           (tier: test-backed `tests/test_build_skill.py`)
+3. [cap]  step 1.5's text names the sanctioned evidence-dir naming convention for a retroactive catch-up inspection, `<task>-retroactive-inspection`, and states why the task's own original evidence folder isn't reused           (tier: test-backed `tests/test_build_skill.py`)
+4. [hold] the existing step 1.5 "compute once... before task 1 is ever dispatched" phrase assertions in `tests/test_build_skill.py` still pass unchanged           (tier: test-backed `tests/test_build_skill.py`)
 Evidence: n/a
 
 Risk: REPLAN-RISK (Task 2) — the design doc's own "Accepted limit" (Open

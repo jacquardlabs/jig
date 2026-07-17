@@ -148,7 +148,11 @@ until now:
 
 For each survivor, draft a GitHub issue (title + body, citing the task and
 `PLAN.md` line it came from) and present the **full batch** of drafts to
-the human before filing anything. Confirmation is **per-item**, not
+the human before filing anything. Draft for the per-item scan that follows:
+an imperative title under 70 characters, a body of at most 5 lines (what,
+why it survived, the citing task and `PLAN.md` line), and the batch
+presented as a numbered list the human can accept/edit/skip down in one
+pass — never one draft per screen. Confirmation is **per-item**, not
 all-or-nothing: the human accepts, edits, or skips each draft individually.
 Only `gh issue create` calls for accepted (or accepted-with-edits) drafts
 run; a skipped draft is dropped, not saved for a later run. No code path

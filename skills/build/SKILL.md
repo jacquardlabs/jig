@@ -488,6 +488,10 @@ resumes `/build` — fix the baseline and re-invoke; revise the checkpoint
 block by hand and re-invoke; acknowledge the risk tag to proceed; fix the
 transcription bug and re-invoke.
 
+**Write concisely.** Per-task status lines are one sentence each. The session
+verdict is the bold token, one sentence naming the cause and resume action (for
+`PAUSED`) or the next step (for `BUILT`/`ESCALATED`), and nothing after.
+
 ## Why this shape
 
 "Judgment in the model, mechanics in scripts" is the whole structure here:

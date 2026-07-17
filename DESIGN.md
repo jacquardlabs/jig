@@ -113,6 +113,8 @@ source and this table should be updated to point there.
 - **Report/output structure**: see Formatting above — the checkpoint block
   and PR evidence table are the two structural conventions that exist so
   far.
+- **Session prose style**: all user-facing prose generated during a jig session — status updates, verdict messages, issue draft previews, decision patch explanations — follows four rules: (1) open on substance, no preamble; (2) one sentence per task status update; (3) verdict lines are terminal — bold token, one sentence of rationale, nothing after; (4) bullets over paragraphs when listing 2+ items.
+- **Review-consumption rule for generated artifacts**: every artifact a human reviews section-by-section or card-by-card in viva — a design doc's `##` sections, a `PLAN.md` task block — is written to be judged on one screen: the section or field's first sentence carries its claim or decision, enumerable content is bulleted, and nothing pads a card the reviewer must scroll past to approve.
 
 ## Anti-patterns (do NOT do these)
 

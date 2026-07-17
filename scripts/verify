@@ -69,6 +69,15 @@ and killed on timeout with `os.killpg(process.pid, signal.SIGKILL)` -- so a
 backgrounded or piped child can't outlive the shell that was reported
 killed.
 
+Parallelism (opt-in): `--parallel` runs command-tier items concurrently in
+a thread pool (each thread just waits on its own subprocess, so the GIL is
+no constraint); the default stays exactly sequential. `probe` items are
+cheap stat/regex checks and stay in-line on the main thread either way.
+Results are printed in item order regardless of completion order -- the
+report reads identically with or without the flag -- and per-item timeout
+semantics are unchanged (each command still gets the full `--timeout`, and
+a hang is still the same distinct `TIMEOUT: ...` FAIL detail).
+
 ITEMS_SCHEMA (JSON):
     {
       "task": "task-1",
@@ -99,6 +108,7 @@ import json
 import re
 import subprocess
 import sys
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
@@ -329,6 +339,33 @@ def check_probe_item(item: dict, since_ts: float) -> ItemResult:
     return ItemResult(item["id"], item["kind"], item["tier"], "PASS", f"artifact ok: {artifact}")
 
 
+def run_items(
+    items: list[dict], repo: Path, timeout: float, since_ts: float | None, parallel: bool
+) -> list[ItemResult]:
+    """Check every item, returning results in item order.
+
+    Sequential by default. With `parallel`, command-tier items run
+    concurrently in a thread pool (one worker per command item -- each
+    thread only waits on its own subprocess) while probe items, cheap stat
+    checks, stay in-line on the main thread; collecting each future by its
+    item's own position keeps the output order deterministic regardless of
+    completion order.
+    """
+    if not parallel:
+        return [
+            check_probe_item(item, since_ts) if item["tier"] == "probe" else check_command_item(item, repo, timeout)
+            for item in items
+        ]
+
+    command_indexes = [i for i, item in enumerate(items) if item["tier"] in COMMAND_TIERS]
+    with ThreadPoolExecutor(max_workers=max(1, len(command_indexes))) as pool:
+        futures = {i: pool.submit(check_command_item, items[i], repo, timeout) for i in command_indexes}
+        return [
+            futures[i].result() if i in futures else check_probe_item(item, since_ts)
+            for i, item in enumerate(items)
+        ]
+
+
 def parse_args(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         prog="verify",
@@ -371,6 +408,14 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
             "seconds to allow each 'script'/'test-backed' item's command to run "
             f"before treating it as hung and killing it (default: {DEFAULT_TIMEOUT_SECONDS:g}s "
             "-- suites legitimately run minutes; issue #49)"
+        ),
+    )
+    parser.add_argument(
+        "--parallel",
+        action="store_true",
+        help=(
+            "run 'script'/'test-backed' items concurrently (default: sequential); "
+            "results still print in item order, and each item keeps its own full --timeout"
         ),
     )
     parser.add_argument("--out", default=None, help="path to write a JSON results document")
@@ -421,10 +466,7 @@ def main(argv: list[str]) -> int:
         )
         return 2
 
-    results = [
-        check_probe_item(item, since_ts) if item["tier"] == "probe" else check_command_item(item, repo, args.timeout)
-        for item in items
-    ]
+    results = run_items(items, repo, args.timeout, since_ts, args.parallel)
 
     for r in results:
         print(f"[{r.status}] item {r.id} ({r.kind}/{r.tier})")

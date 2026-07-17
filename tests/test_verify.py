@@ -45,6 +45,15 @@ Also covers `--plan`/`--task` mode (perf/verify-plan-and-skill-trim):
     `--plan`+`--task` is mutually exclusive with `--items`; downstream
     behavior (checks, output, --out, --since, exit codes) is identical.
 
+Also covers `--parallel` (perf/verify-plan-and-skill-trim):
+
+11. `--parallel` opts in to running command-tier (`script`/`test-backed`)
+    items concurrently -- proven by a marker-file handshake two items can
+    only complete when overlapped, and by the same handshake timing out
+    without the flag (the default stays sequential). Results still print
+    in item order regardless of completion order, and per-item timeout
+    semantics (`TIMEOUT: ...` detail, FAIL toward overall) are unchanged.
+
 Run with:
 
     uv run --no-project python3 -m unittest discover -s tests -v
@@ -120,6 +129,23 @@ def write_probe_spec(tmp: Path, spec: dict) -> Path:
     path = tmp / "probe-spec.json"
     path.write_text(json.dumps(spec), encoding="utf-8")
     return path
+
+
+def write_marker_waiter(tmp: Path, marker: Path, deadline_seconds: float = 8.0) -> str:
+    """A command that polls for `marker` until `deadline_seconds`, exiting 0
+    the moment it appears (1 if it never does) -- one half of a handshake
+    only concurrent execution can complete before the poll deadline."""
+    script = tmp / "wait_for_marker.py"
+    script.write_text(
+        "import pathlib, sys, time\n"
+        f"marker = pathlib.Path({str(marker)!r})\n"
+        f"deadline = time.time() + {deadline_seconds}\n"
+        "while time.time() < deadline and not marker.exists():\n"
+        "    time.sleep(0.05)\n"
+        "sys.exit(0 if marker.exists() else 1)\n",
+        encoding="utf-8",
+    )
+    return f'python3 "{script}"'
 
 
 class TestVerifyCommandTiers(unittest.TestCase):
@@ -840,6 +866,100 @@ class TestVerifyPlanModeProbeSupplement(unittest.TestCase):
             )
             result = run_script(["--plan", str(plan), "--task", "1", "--repo", str(repo)])
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+
+class TestVerifyParallel(unittest.TestCase):
+    """`--parallel` (opt-in) runs command-tier items concurrently; the
+    default stays exactly sequential. Proven by a marker-file handshake --
+    item 1 polls for a marker only item 2 creates -- which completes only
+    when the two commands overlap, never under sequential in-order runs."""
+
+    def test_parallel_runs_command_items_concurrently(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            marker = Path(tmp) / "marker"
+            wait_cmd = write_marker_waiter(Path(tmp), marker)
+            items_path = write_items(
+                Path(tmp),
+                [
+                    {"id": 1, "kind": "cap", "tier": "script", "command": wait_cmd},
+                    {"id": 2, "kind": "hold", "tier": "script", "command": f'touch "{marker}"'},
+                ],
+            )
+            result = run_script(["--items", str(items_path), "--parallel"])
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertIn("[PASS] item 1", result.stdout)
+            self.assertIn("[PASS] item 2", result.stdout)
+
+    def test_default_remains_sequential(self) -> None:
+        """The same handshake without --parallel: item 1 runs alone first,
+        the marker never appears, and the item is killed at --timeout --
+        exactly what strictly-in-order execution must do."""
+        with tempfile.TemporaryDirectory() as tmp:
+            marker = Path(tmp) / "marker"
+            wait_cmd = write_marker_waiter(Path(tmp), marker)
+            items_path = write_items(
+                Path(tmp),
+                [
+                    {"id": 1, "kind": "cap", "tier": "script", "command": wait_cmd},
+                    {"id": 2, "kind": "hold", "tier": "script", "command": f'touch "{marker}"'},
+                ],
+            )
+            result = run_script(["--items", str(items_path), "--timeout", "2"])
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("[FAIL] item 1", result.stdout)
+            self.assertIn("TIMEOUT", result.stdout)
+            self.assertIn("[PASS] item 2", result.stdout)
+
+    def test_parallel_output_stays_in_item_order(self) -> None:
+        """Item 1 finishes last (it sleeps); its result still prints first."""
+        with tempfile.TemporaryDirectory() as tmp:
+            items_path = write_items(
+                Path(tmp),
+                [
+                    {"id": 1, "kind": "cap", "tier": "script", "command": "python3 -c 'import time; time.sleep(1)'"},
+                    {"id": 2, "kind": "hold", "tier": "script", "command": "python3 -c 'pass'"},
+                ],
+            )
+            result = run_script(["--items", str(items_path), "--parallel"])
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertLess(
+                result.stdout.index("[PASS] item 1"),
+                result.stdout.index("[PASS] item 2"),
+                f"results printed out of item order:\n{result.stdout}",
+            )
+
+    def test_parallel_timeout_semantics_per_item_unchanged(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            items_path = write_items(
+                Path(tmp),
+                [
+                    {"id": 1, "kind": "cap", "tier": "script", "command": "python3 -c 'import time; time.sleep(5)'"},
+                    {"id": 2, "kind": "hold", "tier": "script", "command": "python3 -c 'pass'"},
+                ],
+            )
+            result = run_script(["--items", str(items_path), "--parallel", "--timeout", "1"])
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("[FAIL] item 1", result.stdout)
+            self.assertIn("TIMEOUT", result.stdout)
+            self.assertNotIn("exit code:", result.stdout)
+            self.assertIn("[PASS] item 2", result.stdout)
+            self.assertIn("overall=FAIL", result.stdout)
+
+    def test_parallel_with_probe_items_still_checks_them(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            since = (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat()
+            artifact = Path(tmp) / "evidence.txt"
+            artifact.write_text("no orphaned process found\n", encoding="utf-8")
+            items_path = write_items(
+                Path(tmp),
+                [
+                    {"id": 1, "kind": "cap", "tier": "script", "command": "python3 -c 'pass'"},
+                    {"id": 2, "kind": "hold", "tier": "probe", "artifact": str(artifact), "pattern": "no orphaned"},
+                ],
+            )
+            result = run_script(["--items", str(items_path), "--parallel", "--since", since])
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertIn("[PASS] item 2 (hold/probe)", result.stdout)
 
 
 if __name__ == "__main__":

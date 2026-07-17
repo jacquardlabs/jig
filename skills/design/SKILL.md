@@ -73,6 +73,13 @@ question's own `hint` (e.g. `"[contract] ..."`) -- a real, named schema gap
 (see Open questions below), not silently worked around by inventing an
 unparsed field.
 
+**Write each question for a browser card the human answers in seconds.**
+`text` is one sentence ending in a question mark; `hint` is the tag plus
+one line of context, never a paragraph; each entry in `choices` is a short
+option label with its tradeoff in a clause, not an essay per option. A
+question the human has to re-read before answering costs more than the
+answer is worth -- the batch's whole point is nine answers in one sitting.
+
 **Round 2 is conditional, never automatic.** Only run it if round 1's
 answers open a genuinely new fork -- a question whose answer branches
 design direction in more than one viable way, and that round 1 didn't
@@ -140,6 +147,16 @@ doc. Every fork raised in Steps 2-3 is recorded in the doc with its 2-3
 options, tradeoffs, and the recommended option marked
 `**(recommended): <letter>.**` with the reasoning stated -- never left
 implicit in the interview transcript alone.
+
+**Write each section as one review card.** Step 6's viva loop splits the
+doc on `##` and puts one section per card in front of the human, who
+approves or rejects it as a unit -- so draft for that judgment, not for
+completeness theater. The section's first sentence carries its central
+claim or decision; enumerable content (options, journey steps, exclusions,
+open questions) is bulleted, not woven into paragraphs; a section stays
+judgeable on one screen without scrolling. Length follows content -- `Out
+of scope` may be five bullets; `Proposed design` may run longer -- but
+nothing pads a card the reviewer must scroll past to approve.
 
 ## Step 5 -- Call design-lint, fix before viva
 

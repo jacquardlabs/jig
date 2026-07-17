@@ -190,6 +190,15 @@ desyncs the two and reopens issue #23's own absorption bug against
 `/plan`'s *own* output. Don't improvise the heading shape; this is the one
 piece of grammar Step 6 depends on verbatim.
 
+**Write each block for one review card.** Step 6 puts one task per card in
+front of the human, and `/build` hands the same block verbatim to a fresh
+executor -- both readers need the block judgeable on one screen. `Why now`,
+`Rests on`, and `Not here` are one line each; `Do` is 1-3 imperative
+sentences naming files and functions, not a narrative; each `Done means`
+item's behavior text is a single checkable claim, not a compound sentence
+hiding two checks in one item. A block that needs scrolling to judge is a
+block hiding something -- tighten it or split the task.
+
 **Risk tagging.** An optional `Risk:` line (`REPLAN-RISK` or
 `ESCALATE-RISK`) may appear in any block; absence means `LOW`. Tag
 `REPLAN-RISK` when a task's `Done means` rests on an assumption Step 1a

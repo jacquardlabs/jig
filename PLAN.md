@@ -1,6 +1,8 @@
 # Plan: persist a replay bundle per build task (issue #34)
 
-Spine: Task 1 -> Task 2 (Task 2 rests on Task 1's recorded model value)
+Spine: Task 1 -> Task 2 -> Task 3 (Task 2 rests on Task 1's recorded model
+value; Task 3 rests on both, closing the `unavailable`-fallback gap
+`/gate-acceptance`'s product review found between the two)
 
 Inventory finding, stated plainly before drafting: `scripts/evidence-capture`
 needs **zero code changes**. Its `--artifact PRODUCER:LABEL=PATH` mechanism
@@ -55,6 +57,19 @@ Done means:
 1. [cap]  step 7's new instruction states the bundle is assembled at a scratch path (never inside the worktree first) before the existing evidence-capture call, naming all four fields: `task_id`, title, raw checkpoint-block text, and the verify command/result already in `results.json`                (tier: test-backed `tests/test_build_skill.py`)
 2. [cap]  step 7's new instruction states the one additional `--artifact build:replay-bundle=<scratch-path>/replay-bundle.json` flag added to the existing evidence-capture call, not a second invocation                                                                                                          (tier: test-backed `tests/test_build_skill.py`)
 3. [hold] the existing step 7 phrase assertions in `tests/test_build_skill.py` (the `verify:results` artifact call, the commit-before-status-flip ordering) still pass unchanged                                                                                                                                     (tier: test-backed `tests/test_build_skill.py`)
+Evidence: n/a
+
+### Task 3 — Foreman's dispatch-model instruction covers the undeterminable case
+Why now:    `/gate-acceptance`'s product review (SHOULD FIX) found the design doc's own Failure path — an `unavailable` sentinel when the dispatch model genuinely can't be determined — was dropped from the shipped step 2/step 7 prose; closing it before merge keeps the design's own documented degradation path from silently regressing to "refuse the whole capture" or improvisation.
+Read first: `skills/build/SKILL.md`, `docs/design/replay-bundle.md`
+Rests on:   Task 1, Task 2 (extends the exact instructions both tasks added; doesn't change either's shipped behavior)
+Do:         add one sentence to step 2's "Name this attempt's dispatch model" bullet naming a third case — when the model genuinely can't be determined, state it plainly as `unavailable` — beside the existing `override`/`inherited` cases, per the design doc's own Failure path (`docs/design/replay-bundle.md`'s User journey section: "the bundle still gets written — the `model` field is recorded as `unavailable`, not a reason for `evidence-capture` to refuse the whole capture"). Reference this case from step 7's bundle-assembly bullet so a Foreman hitting it still assembles and writes the bundle with `model` recorded as `unavailable`, never refusing the whole `evidence-capture` call.
+Not here:   any new test coverage for what actually triggers the undeterminable case in practice (the design doc itself calls this near-zero probability); any change to the already-shipped `override`/`inherited` cases.
+
+Done means:
+1. [cap]  step 2's dispatch-model instruction names a third case, `unavailable`, for when the model genuinely can't be determined, immediately beside the existing `override`/`inherited` cases           (tier: test-backed `tests/test_build_skill.py`)
+2. [cap]  step 7's bundle-assembly instruction states that an `unavailable` value is written into the bundle rather than refusing the `evidence-capture` call                                              (tier: test-backed `tests/test_build_skill.py`)
+3. [hold] the existing step 2 and step 7 phrase assertions in `tests/test_build_skill.py` (the `override`/`inherited` cases, the four-field bundle, the single `--artifact` flag) still pass unchanged        (tier: test-backed `tests/test_build_skill.py`)
 Evidence: n/a
 
 Risk: REPLAN-RISK (Task 2) — the design doc's own "Accepted limit" (Open

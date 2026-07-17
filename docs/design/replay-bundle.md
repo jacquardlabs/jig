@@ -240,3 +240,5 @@ Consumer: the human sponsor; the next `/design` revision round.
 Signed off via viva review — 1 round, 8 sections, 0 revised. 2026-07-16
 
 Signed off via viva review — 1 round, 8 sections, 0 revised. 2026-07-16
+
+Signed off via viva review — 1 round, 8 sections, 0 revised. 2026-07-16

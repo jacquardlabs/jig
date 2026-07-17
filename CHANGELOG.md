@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v1.3.0 (2026-07-17)
+
+### Features
+
+- Add review-consumption style rules to generated artifacts and session prose
+  ([#77](https://github.com/jacquardlabs/jig/pull/77),
+  [`1b25830`](https://github.com/jacquardlabs/jig/commit/1b25830511c9b467aeea46877310c770c0a54405))
+
+
 ## v1.2.1 (2026-07-16)
 
 ### Bug Fixes

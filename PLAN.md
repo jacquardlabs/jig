@@ -59,7 +59,7 @@ Done means:
 3. [hold] the existing step 7 phrase assertions in `tests/test_build_skill.py` (the `verify:results` artifact call, the commit-before-status-flip ordering) still pass unchanged                                                                                                                                     (tier: test-backed `tests/test_build_skill.py`)
 Evidence: n/a
 
-### Task 3 — Foreman's dispatch-model instruction covers the undeterminable case
+### Task 3 — Foreman's dispatch-model instruction covers the undeterminable case [PASS]
 Why now:    `/gate-acceptance`'s product review (SHOULD FIX) found the design doc's own Failure path — an `unavailable` sentinel when the dispatch model genuinely can't be determined — was dropped from the shipped step 2/step 7 prose; closing it before merge keeps the design's own documented degradation path from silently regressing to "refuse the whole capture" or improvisation.
 Read first: `skills/build/SKILL.md`, `docs/design/replay-bundle.md`
 Rests on:   Task 1, Task 2 (extends the exact instructions both tasks added; doesn't change either's shipped behavior)

@@ -274,6 +274,33 @@ class TestBuildSkillBody(unittest.TestCase):
             "existing dispatch-timestamp capture instruction",
         )
 
+    def test_dispatch_model_names_unavailable_case_beside_override_and_inherited(self) -> None:
+        # Task 3 (issue #34 follow-up, /gate-acceptance SHOULD FIX): the
+        # design doc's own Failure path (docs/design/replay-bundle.md) names
+        # a third dispatch-model case -- when the model genuinely can't be
+        # determined at all, the Foreman states it plainly as `unavailable`,
+        # immediately beside the existing `override`/`inherited` cases.
+        self.assertPhraseIn(
+            "If the model genuinely can't be determined at all, state it "
+            "plainly as `unavailable`"
+        )
+
+        # Immediately beside the existing inherited-case phrase -- not
+        # merely present somewhere else in the body.
+        flat_inherited_phrase = _normalize_ws("state it plainly as `inherited: <model>`")
+        flat_unavailable_phrase = _normalize_ws(
+            "If the model genuinely can't be determined at all, state it "
+            "plainly as `unavailable`"
+        )
+        inherited_idx = self.flat_body.index(flat_inherited_phrase)
+        unavailable_idx = self.flat_body.index(flat_unavailable_phrase)
+        self.assertLess(
+            abs(unavailable_idx - inherited_idx),
+            200,
+            "the `unavailable` third case is not immediately beside the "
+            "existing `override`/`inherited` cases",
+        )
+
     def test_verify_exit_2_is_not_a_task_fail(self) -> None:
         self.assertPhraseIn("Exit code 2 from `verify` is not a task FAIL")
         self.assertPhraseIn("does **not** count against the Failure routine's two-failure budget")
@@ -388,6 +415,21 @@ class TestBuildSkillBody(unittest.TestCase):
         )
         self.assertPhraseIn("no second `evidence-capture` invocation")
         self.assertPhraseIn("exactly how a `probe` item's own artifact already rides that call")
+
+    def test_step_7_bundle_assembly_writes_unavailable_rather_than_refusing_capture(self) -> None:
+        # Task 3: step 7's bundle-assembly instruction must reference the
+        # unavailable case so a Foreman hitting it still assembles and
+        # writes the bundle -- model recorded as `unavailable`, never a
+        # reason to refuse the whole evidence-capture call (the design
+        # doc's own Failure path, docs/design/replay-bundle.md).
+        self.assertPhraseIn(
+            "If step 2.2 recorded `unavailable` for this attempt, the "
+            "bundle is still assembled and written the same way"
+        )
+        self.assertPhraseIn(
+            "never a reason for this call to refuse the whole "
+            "`evidence-capture` capture"
+        )
 
     def test_inspector_is_no_longer_a_no_op(self) -> None:
         # Story rough-in-inspector (issue #15) replaced the prior no-op --

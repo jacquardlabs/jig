@@ -212,10 +212,13 @@ For each task block, in order:
    explicit model override, state it plainly as `override: <model>`.
    Otherwise this dispatch inherits the Foreman's own resolved session
    model — the same model named in your own system prompt — so state it
-   plainly as `inherited: <model>`. Name this before you launch the
-   subagent, the same plain-statement discipline step 1's load-bearing-set
-   computation already uses ("state the computed set plainly before
-   proceeding").
+   plainly as `inherited: <model>`. If the model genuinely can't be
+   determined at all, state it plainly as `unavailable` — a third case
+   beside `override`/`inherited`, per the design's own documented
+   degradation path (`docs/design/replay-bundle.md`). Name this before you
+   launch the subagent, the same plain-statement discipline step 1's
+   load-bearing-set computation already uses ("state the computed set
+   plainly before proceeding").
 3. **Execute.** The executor works under `task-execution-discipline`'s
    three pillars (TDD-per-capability, YAGNI bounded by `Not here`,
    verification-before-completion) and commits its own change as its last
@@ -377,7 +380,12 @@ For each task block, in order:
      the verify command(s) and result already sitting in this task's own
      `results.json` — plus step 2.2's recorded dispatch model (the
      `inherited: <model>` / `override: <model>` value named at dispatch
-     time), the last of the four fields the bundle needs. The replay
+     time), the last of the four fields the bundle needs. If step 2.2
+     recorded `unavailable` for this attempt, the bundle is still
+     assembled and written the same way — `model` recorded as
+     `unavailable`, never a reason for this call to refuse the whole
+     `evidence-capture` capture (the design's own Failure path,
+     `docs/design/replay-bundle.md`). The replay
      harness itself (issue #41) and issue #33's richer identity fields
      (`run_id`/`step_id`/`parent_step_id`/`skill`/`role`/`routing_reason`)
      stay out of scope here — none of those exist in this session model

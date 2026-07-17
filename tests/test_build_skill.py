@@ -243,6 +243,37 @@ class TestBuildSkillBody(unittest.TestCase):
         self.assertPhraseIn("Never the executor's own reported commit SHA")
         self.assertPhraseIn("capture a fresh dispatch timestamp per step 2.2 for each one")
 
+    def test_dispatch_names_the_executor_model_beside_the_timestamp_capture(self) -> None:
+        # Task: Foreman records which model it dispatched the Executor on --
+        # the bundle's one decisive field. Step 2's Dispatch item must name,
+        # immediately beside its existing dispatch-timestamp capture, which
+        # model the Executor runs on: an explicit override if one is passed,
+        # otherwise the Foreman's own resolved session model (the one named
+        # in its own system prompt) since a no-override dispatch inherits
+        # it -- stated plainly, mirroring step 1.5's own
+        # "state the computed set plainly before proceeding" pattern.
+        self.assertPhraseIn("Name this attempt's dispatch model")
+        self.assertPhraseIn("an explicit model override")
+        self.assertPhraseIn("state it plainly as `override: <model>`")
+        self.assertPhraseIn(
+            "this dispatch inherits the Foreman's own resolved session model"
+        )
+        self.assertPhraseIn("the same model named in your own system prompt")
+        self.assertPhraseIn("state it plainly as `inherited: <model>`")
+
+        # Immediately beside the existing dispatch-timestamp capture -- not
+        # merely present somewhere in the body.
+        flat_timestamp_phrase = _normalize_ws("Capture this attempt's dispatch timestamp")
+        flat_model_phrase = _normalize_ws("Name this attempt's dispatch model")
+        timestamp_idx = self.flat_body.index(flat_timestamp_phrase)
+        model_idx = self.flat_body.index(flat_model_phrase)
+        self.assertLess(
+            abs(model_idx - timestamp_idx),
+            700,
+            "dispatch-model instruction is not immediately beside the "
+            "existing dispatch-timestamp capture instruction",
+        )
+
     def test_verify_exit_2_is_not_a_task_fail(self) -> None:
         self.assertPhraseIn("Exit code 2 from `verify` is not a task FAIL")
         self.assertPhraseIn("does **not** count against the Failure routine's two-failure budget")

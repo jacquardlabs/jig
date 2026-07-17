@@ -207,6 +207,15 @@ For each task block, in order:
    (see step 2.5 for why). Re-capture a fresh one for every dispatch,
    including a Failure-routine retry (see below) — each attempt gets its
    own floor, not the task's first attempt's.
+
+   **Name this attempt's dispatch model.** If this dispatch passes an
+   explicit model override, state it plainly as `override: <model>`.
+   Otherwise this dispatch inherits the Foreman's own resolved session
+   model — the same model named in your own system prompt — so state it
+   plainly as `inherited: <model>`. Name this before you launch the
+   subagent, the same plain-statement discipline step 1's load-bearing-set
+   computation already uses ("state the computed set plainly before
+   proceeding").
 3. **Execute.** The executor works under `task-execution-discipline`'s
    three pillars (TDD-per-capability, YAGNI bounded by `Not here`,
    verification-before-completion) and commits its own change as its last

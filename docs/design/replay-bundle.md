@@ -52,6 +52,14 @@ artifact into the same per-task folder it already owns
 (`docs/jig/evidence/<date>-<task>/`): a self-contained replay bundle
 carrying:
 
+Consolidated into one `replay-bundle.json` rather than left as two new
+discrete files (`model`, the raw checkpoint block) alongside what
+`evidence-capture` already writes: the harness's own first loop (per issue
+#34's own "Feeds" wording) reads *one task* as *one eval case* — a single
+file gives it one atomic read per case instead of reassembling one from
+several files in a folder whose other contents (`manifest.json`,
+freshness-check metadata) aren't part of the case at all.
+
 - the task's own identity: `task_id` (its heading number, e.g. `"1"`) and
   title — nothing richer (see Alternatives, and Out of scope)
 - the task's own checkpoint block, captured as **raw verbatim text** — not
@@ -75,24 +83,29 @@ altitude per the design-doc-contract's own implementation-detail
 exclusion.
 
 **Resolved, not deferred: this is not the self-attestation "nothing signs
-off on itself" rules out.** The reviewer's other SHOULD FIX read the
-`model` field as executor attestation — the same category that principle
-targets. It isn't the same category. "Nothing signs off on itself" is
-about a *judgment* a task can't be trusted to make about its own work
-(did I actually pass, is my own test meaningful) — it's why `status-flip`
-never lets the model write its own `PASS`. The `model` field carries no
-judgment at all: it's the literal value of a parameter the Foreman itself
-sets, in its own immediately-preceding tool call, before the Executor it
-names ever runs. That's structurally the same kind of fact `verify:results`
-already records without a second script re-deriving it — the command that
-ran, logged as what it was, not re-judged. The Foreman recording which
-model it just dispatched is the same class of self-log, not a self-grade.
-Given that, the expected `unavailable` rate is near-zero in ordinary
-operation — the field names a parameter of an action the Foreman took
-moments earlier, not something recovered indirectly from elsewhere; the
-only legitimate `unavailable` case is a dispatch path where the effective
-model was never explicitly set and truly isn't introspectable, not routine
-operation.
+off on itself" rules out — but the first attempt at this resolution
+overstated the mechanism, and a re-review of this doc caught it.** "Nothing
+signs off on itself" is about a *judgment* a task can't be trusted to make
+about its own work (did I actually pass, is my own test meaningful) — it's
+why `status-flip` never lets the model write its own `PASS`. The `model`
+field carries no such judgment. But the claim that it's simply "a parameter
+the Foreman sets in its own immediately-preceding tool call" is only true
+for one of two real dispatch shapes, not both: the Task/Agent dispatch's
+own `model` parameter is *optional* — when the Foreman passes an explicit
+override, that value is exactly what gets set, trivially self-logged. When
+it's omitted (dispatching with no override, the common case), the Executor
+instead inherits the Foreman's own resolved session model — nothing was
+"set" in that call at all. The fix isn't to weaken this to best-effort
+recovery, though: a Foreman session already knows its own model identity
+directly, stated in its own system prompt, independent of whether it chose
+to override the dispatch. So in *both* shapes the fact is knowable at
+dispatch time, not discovered afterward — an explicit override is what was
+set; an inherited dispatch is the Foreman's own already-known identity.
+Either way it's the same class of self-log `verify:results` already is (the
+command that ran, logged as what it was, not re-judged), never a self-grade.
+Given that, the expected `unavailable` rate is near-zero: the only
+legitimate case is a dispatch path outside the Foreman's own visibility
+entirely, not the ordinary override-or-inherit shape above.
 
 Only the task's **final, PASS-reaching attempt** is captured — not the
 full `FIX`/`RESAMPLE` retry history a task may have gone through. No bundle

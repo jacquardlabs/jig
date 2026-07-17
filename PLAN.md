@@ -66,6 +66,18 @@ correct one — a design-level question (real independent corroboration
 needs cctx's own session-trace export, per the design doc), not a local
 retry, if it surfaces.
 
+Mitigation performed before Task 2's dispatch: a direct empirical spot
+check, run immediately before this task's dispatch, of a plain Task-tool
+subagent given no model override — it self-reported "Sonnet 5 /
+claude-sonnet-5," matching the Foreman's own resolved session model
+exactly (this Foreman's own system prompt states the same model). This
+is real, single-sample corroboration in this exact session and harness
+version — not the permanent, cctx-trace-backed proof the design doc's
+"Accepted limit" scopes to issue #33, and the equation could still drift
+in a future session or a different harness release. The tag stays
+REPLAN-RISK; this note records the corroboration actually gathered, not
+a downgrade of the underlying limit.
+
 ## Not-here follow-ups
 - Independent corroboration of the recorded `model` field against cctx's
   own session-trace export — deferred to issue #33/cctx#193/#196, per the

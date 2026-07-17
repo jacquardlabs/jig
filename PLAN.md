@@ -74,7 +74,7 @@ Done means:
 3. [hold] the existing step 2 and step 7 phrase assertions in `tests/test_build_skill.py` (the `override`/`inherited` cases, the four-field bundle, the single `--artifact` flag) still pass unchanged        (tier: test-backed `tests/test_build_skill.py`)
 Evidence: n/a
 
-### Task 4 — Foreman's step 1.5 gains a defined path for a plan growing mid-session
+### Task 4 — Foreman's step 1.5 gains a defined path for a plan growing mid-session [PASS]
 Why now:    `/gate-audit`'s re-audit found (Important, architecture) that step 1.5's "compute once... it never changes mid-loop" invariant has no defined path for what this exact session did — appending Task 3 with a `Rests on:` line that retroactively made the already-`PASS`ed, leaf-classified Task 2 load-bearing. The catch-up inspection performed this session held by human diligence, not by any mechanism `/build` itself provides, and invented an ad hoc evidence-dir naming convention (`2-retroactive-inspection`) with no sanction anywhere in `skills/build/SKILL.md`.
 Read first: `skills/build/SKILL.md`
 Rests on:   n/a (a `/build`-mechanics fix, independent of Tasks 1-3's own replay-bundle behavior)

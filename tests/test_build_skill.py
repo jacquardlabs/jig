@@ -337,6 +337,58 @@ class TestBuildSkillBody(unittest.TestCase):
             "reads it, never requires it to live in the worktree either"
         )
 
+    def test_step_7_assembles_replay_bundle_at_scratch_path_before_evidence_capture(self) -> None:
+        # Task (replay bundle, issue #34): the Foreman assembles one JSON
+        # replay-bundle object at a scratch path -- never inside the
+        # worktree first, matching issue #45's clean-tree discipline
+        # step 5's own items/results files already follow -- before the
+        # existing evidence-capture call, naming all four fields the
+        # bundle needs: task_id, title, the task's own checkpoint block as
+        # raw verbatim text, and the verify command(s)/result already
+        # sitting in results.json.
+        self.assertPhraseIn(
+            "Assemble the replay bundle at a scratch path — never inside "
+            "the worktree first"
+        )
+        self.assertPhraseIn("`<scratch-path>/replay-bundle.json`")
+        self.assertPhraseIn("this task's own `task_id`")
+        self.assertPhraseIn("its title")
+        self.assertPhraseIn("this task's own checkpoint block as raw verbatim text")
+        self.assertPhraseIn(
+            "the verify command(s) and result already sitting in this "
+            "task's own `results.json`"
+        )
+        self.assertPhraseIn("step 2.2's recorded dispatch model")
+
+        # Assembled before the existing evidence-capture call, not after --
+        # Done means item 1's "before the existing evidence-capture call".
+        flat_assemble_phrase = _normalize_ws(
+            "Assemble the replay bundle at a scratch path"
+        )
+        flat_evidence_call_phrase = _normalize_ws(
+            "Call `scripts/evidence-capture --task <id> --repo <worktree> "
+            "--artifact verify:results=<scratch-path>/results.json"
+        )
+        assemble_idx = self.flat_body.index(flat_assemble_phrase)
+        evidence_call_idx = self.flat_body.index(flat_evidence_call_phrase)
+        self.assertLess(
+            assemble_idx,
+            evidence_call_idx,
+            "replay-bundle assembly instruction must precede the existing "
+            "evidence-capture call in step 7",
+        )
+
+    def test_step_7_replay_bundle_rides_the_existing_evidence_capture_call(self) -> None:
+        # Task (replay bundle, issue #34): exactly one more --artifact flag
+        # on the same evidence-capture call verify:results already uses --
+        # no second invocation, matching exactly how a probe item's own
+        # artifact already rides that call.
+        self.assertPhraseIn(
+            "--artifact build:replay-bundle=<scratch-path>/replay-bundle.json"
+        )
+        self.assertPhraseIn("no second `evidence-capture` invocation")
+        self.assertPhraseIn("exactly how a `probe` item's own artifact already rides that call")
+
     def test_inspector_is_no_longer_a_no_op(self) -> None:
         # Story rough-in-inspector (issue #15) replaced the prior no-op --
         # this is a regression guard against ever reintroducing it.

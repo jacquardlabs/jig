@@ -370,6 +370,23 @@ For each task block, in order:
      copy gets a brand-new mtime at copy time, which happens here, after
      the executor's commit — so the copy clears the same gate the original
      never could.
+   - **Assemble the replay bundle at a scratch path — never inside the
+     worktree first.** Write one JSON object to
+     `<scratch-path>/replay-bundle.json` naming this task's own `task_id`,
+     its title, this task's own checkpoint block as raw verbatim text, and
+     the verify command(s) and result already sitting in this task's own
+     `results.json` — plus step 2.2's recorded dispatch model (the
+     `inherited: <model>` / `override: <model>` value named at dispatch
+     time), the last of the four fields the bundle needs. The replay
+     harness itself (issue #41) and issue #33's richer identity fields
+     (`run_id`/`step_id`/`parent_step_id`/`skill`/`role`/`routing_reason`)
+     stay out of scope here — none of those exist in this session model
+     today — and only the final attempt this hook point ever sees is
+     captured, never a full attempt-by-attempt retry history. Add this
+     bundle to the same call `verify:results` already uses: one more
+     `--artifact build:replay-bundle=<scratch-path>/replay-bundle.json`
+     flag, no second `evidence-capture` invocation, no new commit —
+     exactly how a `probe` item's own artifact already rides that call.
    - Call `scripts/evidence-capture --task <id> --repo <worktree> --artifact verify:results=<scratch-path>/results.json [...]`
      — `verify:results` plus one `--artifact` per probe item's *copy* from
      above, pointing `--artifact` straight at each scratch-path file, never

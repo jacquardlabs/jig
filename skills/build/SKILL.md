@@ -168,6 +168,30 @@ may appear anywhere in the block. No `Risk:` line means `LOW` — see Cadence.
    — every one of step 2.6's skip notes and dispatches reasons from this
    one fixed set, never a fresh per-task guess.
 
+   **Plan growth mid-session.** The invariant above ("it never changes
+   mid-loop") governs the ordinary run; it does not leave undefined what
+   happens when `PLAN.md` itself grows after task 1 is ever dispatched — a
+   new task appended whose own `Rests on:` line names a task that already
+   reached `PASS`. That specific amendment is this run's one sanctioned
+   trigger for touching the load-bearing set again: the moment you read a
+   newly appended task block whose `Rests on:` line names an
+   already-`PASS`ed task, recompute the load-bearing set immediately, over
+   every task block now in hand, before dispatching that new task's own
+   executor — never a general "recompute on every step" habit, only this
+   one amendment-triggered case. Any task whose status flips from leaf to
+   load-bearing under that recompute, having already reached `PASS`
+   without an Inspector ever having been dispatched against it (a leaf
+   task skips step 2.6 entirely), gets a retroactive catch-up Inspector
+   dispatched now, scoped to exactly that task's own already-existing
+   commit(s) — the same three-lens jurisdiction step 2.6 already names —
+   run before the new dependent task's own executor is dispatched. Capture
+   that catch-up Inspector's report under its own sanctioned evidence-dir
+   naming convention, `<task>-retroactive-inspection`, never the task's
+   own original evidence folder: `evidence-capture` always stamps against
+   current `HEAD`, so reusing the task's own original evidence folder
+   would misdate the retroactive inspection against a later, unrelated
+   commit made after that task's own `PASS`.
+
 ## Step 2 — Per task, in spine order
 
 For each task block, in order:

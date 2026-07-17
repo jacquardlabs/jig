@@ -456,6 +456,63 @@ class TestBuildSkillBody(unittest.TestCase):
         )
         self.assertPhraseIn("otherwise task N is a **leaf**")
 
+    def test_step_1_5_names_plan_growth_recompute_trigger(self) -> None:
+        # Task 4 (issue #47 gate-audit re-audit finding, Important/
+        # architecture): step 1.5's own text must name what happens when
+        # PLAN.md grows mid-session -- a new task's `Rests on:` line naming
+        # an already-`PASS`ed task -- as an immediate load-bearing-set
+        # recompute, before that new task's own executor is dispatched.
+        # Also confirms the recompute stays scoped to this one
+        # amendment-triggered case, not a generalized "recompute on every
+        # step" mechanism (this task's own `Not here`).
+        self.assertPhraseIn(
+            "a new task appended whose own `Rests on:` line names a task "
+            "that already reached `PASS`"
+        )
+        self.assertPhraseIn(
+            "recompute the load-bearing set immediately, over every task "
+            "block now in hand, before dispatching that new task's own "
+            "executor"
+        )
+        self.assertPhraseIn(
+            'never a general "recompute on every step" habit, only this '
+            "one amendment-triggered case"
+        )
+
+    def test_step_1_5_names_retroactive_catch_up_inspector(self) -> None:
+        # Task 4: a task whose status flips from leaf to load-bearing under
+        # the recompute, having already reached PASS without an Inspector,
+        # gets a retroactive catch-up Inspector dispatched now, scoped to
+        # that task's own existing commit(s), before the new dependent
+        # task's own executor is dispatched.
+        self.assertPhraseIn(
+            "Any task whose status flips from leaf to load-bearing under "
+            "that recompute, having already reached `PASS` without an "
+            "Inspector ever having been dispatched against it"
+        )
+        self.assertPhraseIn(
+            "gets a retroactive catch-up Inspector dispatched now, scoped "
+            "to exactly that task's own already-existing commit(s)"
+        )
+        self.assertPhraseIn(
+            "run before the new dependent task's own executor is dispatched"
+        )
+
+    def test_step_1_5_names_retroactive_inspection_evidence_dir_convention(self) -> None:
+        # Task 4: the sanctioned evidence-dir naming convention for a
+        # retroactive catch-up inspection, `<task>-retroactive-inspection`,
+        # plus why the task's own original evidence folder isn't reused --
+        # evidence-capture always stamps against current HEAD, so reusing
+        # the original folder would misdate the inspection against a later,
+        # unrelated commit.
+        self.assertPhraseIn("`<task>-retroactive-inspection`")
+        self.assertPhraseIn("never the task's own original evidence folder")
+        self.assertPhraseIn(
+            "`evidence-capture` always stamps against current `HEAD`, so "
+            "reusing the task's own original evidence folder would misdate "
+            "the retroactive inspection against a later, unrelated commit"
+        )
+
     def test_leaf_task_skip_is_stated_not_silent(self) -> None:
         # Epic pre-mortem risk #6: a silent skip defeats "none silent."
         self.assertPhraseIn(

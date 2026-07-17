@@ -4,10 +4,26 @@
 Independently re-runs a task's Done-means items — one PASS/FAIL per item,
 never a single suite-level boolean — instead of trusting the executor's
 claim that they're satisfied (docs/design/build-scripts.md, "Proposed
-design"; PRODUCT.md's "Nothing signs off on itself" principle). Consumes an
-already-extracted item list (a small JSON document — see the module-level
-`ITEMS_SCHEMA` note below), not raw `PLAN.md` checkpoint-block prose;
-parsing that grammar for real is `/plan`'s (M3) job.
+design"; PRODUCT.md's "Nothing signs off on itself" principle). Takes its
+item list from exactly one of two sources:
+
+- `--items <json>`: an already-extracted item list (a small JSON document
+  — see the module-level `ITEMS_SCHEMA` note below), hand-transcribed by
+  the orchestrating model from a `PLAN.md` task block.
+- `--plan <path> --task <label>`: derives the items mechanically from the
+  named task's checkpoint block — the same grammar `scripts/plan-lint`
+  validates and `skills/build/SKILL.md` documents, parsed by the shared
+  `scripts/_planparse.py` module so the two scripts can't drift apart.
+  `--task` names the task by its heading number (`3` or `Task 3`).
+  A `script`/`test-backed` item's backtick-quoted repo-relative method
+  path becomes its `command` verbatim; that derivation is fully
+  mechanical. A `probe` item's artifact/pattern isn't in the plan grammar
+  at all, so it comes from the optional `--probe-spec <json>` supplement
+  (see `PROBE_SPEC_SCHEMA` below) — a task whose block has probe items
+  but no supplement entry for them is a usage error (exit 2) naming
+  exactly which item ids need one; a task with no probe items needs no
+  supplement. Everything downstream (checks, output, --out, --since,
+  exit codes) behaves identically in both modes.
 
 Each item names a verification tier (`script` | `test-backed` | `probe` —
 DESIGN.md's closed enum; no `judgment` tier permitted):
@@ -63,8 +79,18 @@ ITEMS_SCHEMA (JSON):
       ]
     }
 
+PROBE_SPEC_SCHEMA (JSON, `--probe-spec`, plan mode only): item id (the
+block's own list number, as a string) -> the probe fields the plan grammar
+doesn't carry. Only probe-tier items ever appear here; an entry naming a
+non-probe or absent item id is a usage error (a transcription bug, not a
+check to silently drop).
+    {
+      "3": {"artifact": "path/to/evidence.txt", "pattern": "no orphaned process"}
+    }
+
 Exit codes: 0 every item PASS. 1 at least one item FAIL. 2 usage error
-(malformed/empty items, missing --since for a probe item).
+(malformed/empty items, missing --since for a probe item, an unparseable
+plan task or missing probe supplement in --plan mode).
 """
 from __future__ import annotations
 
@@ -80,10 +106,15 @@ from textwrap import indent
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _gitutil import DEFAULT_TIMEOUT_SECONDS, resolve_revision_epoch, run_shell_with_timeout  # noqa: E402
+from _planparse import COMMAND_TIERS, TIER_BODY_RE, VALID_TIERS, Item, parse_items, split_tasks  # noqa: E402
 
 VALID_KINDS = frozenset({"cap", "hold"})
-VALID_TIERS = frozenset({"script", "test-backed", "probe"})
-COMMAND_TIERS = frozenset({"script", "test-backed"})
+
+# --task names a task by its heading number: a bare "3" or the "Task 3"
+# label form, matching TASK_HEADING_RE's own capture. Never by title --
+# titles need the ambiguity rules plan-lint's load-bearing derivation
+# carries, and a mechanical transcription already knows the number.
+TASK_LABEL_RE = re.compile(r"(?:task\s+)?(\d+)", re.IGNORECASE)
 
 
 @dataclass
@@ -136,6 +167,109 @@ def load_items(path: Path) -> dict:
             raise ValueError(f"{label}: tier 'probe' requires a non-empty 'artifact' path")
 
     return data
+
+
+def load_probe_spec(path: Path) -> dict[str, dict]:
+    """Load and validate the --probe-spec supplement; raises ValueError on any problem."""
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except OSError as exc:
+        raise ValueError(f"could not read probe-spec file '{path}': {exc}") from exc
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"probe-spec file '{path}' is not valid JSON: {exc}") from exc
+
+    if not isinstance(data, dict):
+        raise ValueError(f"probe-spec file '{path}' must be a JSON object mapping item id -> {{artifact, pattern}}")
+    for key, entry in data.items():
+        if not isinstance(entry, dict) or not entry.get("artifact"):
+            raise ValueError(f"probe-spec entry {key!r} must be an object with a non-empty 'artifact' path")
+    return data
+
+
+def resolve_task_number(label: str) -> str:
+    """Resolve --task to a task heading number: '3' or 'Task 3'."""
+    m = TASK_LABEL_RE.fullmatch(label.strip())
+    if m is None:
+        raise ValueError(f"--task '{label}' names no task heading number (expected e.g. '3' or 'Task 3')")
+    return m.group(1)
+
+
+def parse_item_tier(item: Item) -> tuple[str, str | None]:
+    """An item's (tier_word, method_path) per the checkpoint-block grammar;
+    raises ValueError on anything the closed enum or shape rejects."""
+    if item.tier_body is None:
+        raise ValueError(f"item {item.num} has no '(tier: ...)' parenthetical")
+    m = TIER_BODY_RE.match(item.tier_body.strip())
+    if not m:
+        raise ValueError(f"item {item.num} tier annotation is malformed: {item.tier_body!r}")
+    tier_word, method_path = m.group(1), m.group(2)
+    if tier_word not in VALID_TIERS:
+        raise ValueError(
+            f"item {item.num} tier '{tier_word}' is not one of {sorted(VALID_TIERS)} (no 'judgment' tier permitted)"
+        )
+    return tier_word, method_path
+
+
+def derive_items_from_plan(plan_path: Path, task_label: str, probe_spec_path: Path | None) -> dict:
+    """Build an ITEMS_SCHEMA document mechanically from `plan_path`'s named
+    task block; raises ValueError (a usage error, exit 2) on any problem —
+    fail closed, never a silently partial item list."""
+    try:
+        text = plan_path.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise ValueError(f"could not read plan file '{plan_path}': {exc}") from exc
+
+    tasks = split_tasks(text)
+    if not tasks:
+        raise ValueError(f"plan '{plan_path}' contains no '### Task' headings -- nothing to derive items from")
+
+    task_num = resolve_task_number(task_label)
+    blocks = [block for num, block in tasks if num == task_num]
+    if not blocks:
+        available = ", ".join(num for num, _ in tasks)
+        raise ValueError(f"task {task_num} not found in '{plan_path}' (tasks present: {available})")
+    if len(blocks) > 1:
+        raise ValueError(f"task {task_num} appears {len(blocks)} times in '{plan_path}' -- ambiguous")
+
+    parsed = parse_items(blocks[0])
+    if not parsed:
+        raise ValueError(f"task {task_num} in '{plan_path}' has no 'Done means' items -- nothing to verify")
+
+    tiered = [(item, *parse_item_tier(item)) for item in parsed]
+    for item, tier, method_path in tiered:
+        if tier in COMMAND_TIERS and not method_path:
+            raise ValueError(
+                f"item {item.num} (tier: {tier}) names no backtick-quoted method path -- "
+                "its command can't be derived mechanically"
+            )
+
+    probe_spec = load_probe_spec(probe_spec_path) if probe_spec_path else {}
+
+    probe_nums = {item.num for item, tier, _ in tiered if tier == "probe"}
+    unknown = sorted(set(probe_spec) - probe_nums)
+    if unknown:
+        raise ValueError(
+            f"--probe-spec entr{'ies' if len(unknown) > 1 else 'y'} {', '.join(unknown)} "
+            f"match no probe-tier item of task {task_num}"
+        )
+    missing = [item.num for item, tier, _ in tiered if tier == "probe" and item.num not in probe_spec]
+    if missing:
+        raise ValueError(
+            f"probe-tier item(s) {', '.join(missing)} of task {task_num} need an artifact (and optional "
+            "pattern) the plan grammar doesn't carry -- supply --probe-spec JSON mapping each listed "
+            'item id to {"artifact": ..., "pattern": ...}'
+        )
+
+    def derive(item: Item, tier: str, method_path: str | None) -> dict:
+        if tier in COMMAND_TIERS:
+            return {"id": int(item.num), "kind": item.kind, "tier": tier, "command": method_path}
+        entry = probe_spec[item.num]
+        derived = {"id": int(item.num), "kind": item.kind, "tier": tier, "artifact": entry["artifact"]}
+        if "pattern" in entry:
+            derived["pattern"] = entry["pattern"]
+        return derived
+
+    return {"task": f"task-{task_num}", "items": [derive(*t) for t in tiered]}
 
 
 def resolve_since(since: str, repo: Path) -> float:
@@ -200,7 +334,27 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         prog="verify",
         description="Independently re-run a task's Done-means items, one PASS/FAIL per item.",
     )
-    parser.add_argument("--items", required=True, help="path to the task's items JSON document")
+    source = parser.add_mutually_exclusive_group(required=True)
+    source.add_argument("--items", help="path to the task's items JSON document")
+    source.add_argument(
+        "--plan",
+        help="path to a PLAN.md-shaped file to derive the items from mechanically (requires --task)",
+    )
+    parser.add_argument(
+        "--task",
+        default=None,
+        help="which of --plan's tasks to derive: its heading number, e.g. '3' or 'Task 3'",
+    )
+    parser.add_argument(
+        "--probe-spec",
+        default=None,
+        help=(
+            "path to a JSON object mapping a probe-tier item id to its "
+            '{"artifact": ..., "pattern": ...} — the one hand-authored supplement '
+            "--plan mode can need, since the plan grammar carries no artifact/pattern "
+            "for a probe item (only with --plan)"
+        ),
+    )
     parser.add_argument(
         "--repo", default=".", help="working directory for 'command' tiers and for resolving --since as a git revision"
     )
@@ -220,14 +374,28 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         ),
     )
     parser.add_argument("--out", default=None, help="path to write a JSON results document")
-    return parser.parse_args(argv)
+    args = parser.parse_args(argv)
+
+    # argparse's own mutual-exclusion check covers --items vs --plan; these
+    # cross-flag rules ride the same usage-error convention (exit 2).
+    if args.plan and not args.task:
+        parser.error("--plan requires --task (which task block to derive items from)")
+    if args.task and not args.plan:
+        parser.error("--task only makes sense with --plan")
+    if args.probe_spec and not args.plan:
+        parser.error("--probe-spec only makes sense with --plan")
+    return args
 
 
 def main(argv: list[str]) -> int:
     args = parse_args(argv)
 
     try:
-        data = load_items(Path(args.items))
+        data = (
+            derive_items_from_plan(Path(args.plan), args.task, Path(args.probe_spec) if args.probe_spec else None)
+            if args.plan
+            else load_items(Path(args.items))
+        )
     except ValueError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2

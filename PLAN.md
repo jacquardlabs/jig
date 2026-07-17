@@ -32,7 +32,7 @@ config file), and nothing in this feature needs live-UI observation; every
 own prose, matching `tests/test_build_skill.py`'s established
 phrase-assertion convention for this exact class of change.
 
-### Task 1 — Foreman records which model it dispatched the Executor on
+### Task 1 — Foreman records which model it dispatched the Executor on [PASS]
 Why now:    the bundle's one decisive field needs a real, known value before anything can assemble a bundle around it — and this is independently valuable on its own, the one visible change the design doc's User journey names.
 Read first: `skills/build/SKILL.md`
 Rests on:   n/a

@@ -107,6 +107,24 @@ Given that, the expected `unavailable` rate is near-zero: the only
 legitimate case is a dispatch path outside the Foreman's own visibility
 entirely, not the ordinary override-or-inherit shape above.
 
+**A real limit this design accepts rather than argues away, after two
+rounds of trying to reason it into full reliability:** the inherit case's
+equation — a no-override dispatch runs the Executor on the Foreman's own
+resolved session model — is asserted, not independently verified anywhere
+in this design. Everything above establishes the field isn't a *judgment*
+call, which is what "nothing signs off on itself" targets; it does not
+establish the recorded value is guaranteed *correct*. The failure path
+below only ever catches "couldn't determine" — a wrong-but-confident value
+has no sentinel and looks identical to a right one. Closing that gap for
+real means independently corroborating a dispatch's actual model against
+something the Foreman didn't write itself — which is exactly what cctx's
+own session-trace export is for (the same join issue #33 and cctx#193/#196
+already own), not a mechanism this design should build a second copy of.
+This bundle's `model` field is the Foreman's own best-known record, correct
+absent a bug in the reasoning above, cross-verifiable later against cctx's
+trace data once #33 exists — not proven correct today. Recorded honestly
+rather than deferred silently: see Open questions.
+
 Only the task's **final, PASS-reaching attempt** is captured — not the
 full `FIX`/`RESAMPLE` retry history a task may have gone through. No bundle
 is written at all for a task that doesn't reach `PASS` in this session
@@ -232,6 +250,14 @@ Consumer: the human sponsor; the next `/design` revision round.
   and interprets its findings" — see Problem & persona's own resolution
   (issue #34's stated "Feeds" dependency makes the sequencing intentional,
   bounded by the next `/deep-review architecture` pass, not left open).
+- **Accepted limit, not resolved:** the `model` field's no-override-inherits-
+  the-Foreman's-model equation (see Proposed design) is asserted, not
+  independently verified — a wrong-but-confident value has no sentinel
+  distinguishing it from a correct one. Real independent corroboration
+  needs cctx's own session-trace export (issue #33/cctx#193/#196's join),
+  not a second verification mechanism invented here. Whoever eventually
+  builds #33 should treat this bundle's `model` field as a candidate to
+  cross-check against cctx's trace data, not as ground truth on its own.
 
 ---
 

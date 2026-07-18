@@ -2,6 +2,37 @@
 
 <!-- version list -->
 
+## v1.5.0 (2026-07-18)
+
+### Documentation
+
+- Coach-skill demonstration evidence across 5 pipeline states
+  ([#82](https://github.com/jacquardlabs/jig/pull/82),
+  [`ae1143f`](https://github.com/jacquardlabs/jig/commit/ae1143f514ab9bc8e1c407e1a6febe4dfdf3888b))
+
+- Dated build report for coach-skill (/finish step 5)
+  ([#82](https://github.com/jacquardlabs/jig/pull/82),
+  [`ae1143f`](https://github.com/jacquardlabs/jig/commit/ae1143f514ab9bc8e1c407e1a6febe4dfdf3888b))
+
+- Design doc for the coach (user-invoked orchestrator)
+  ([#82](https://github.com/jacquardlabs/jig/pull/82),
+  [`ae1143f`](https://github.com/jacquardlabs/jig/commit/ae1143f514ab9bc8e1c407e1a6febe4dfdf3888b))
+
+- **design-review**: Persist coach-skill pre-mortem register
+  ([#82](https://github.com/jacquardlabs/jig/pull/82),
+  [`ae1143f`](https://github.com/jacquardlabs/jig/commit/ae1143f514ab9bc8e1c407e1a6febe4dfdf3888b))
+
+### Features
+
+- Implement /coach, the user-invoked orchestrator (M6)
+  ([#82](https://github.com/jacquardlabs/jig/pull/82),
+  [`ae1143f`](https://github.com/jacquardlabs/jig/commit/ae1143f514ab9bc8e1c407e1a6febe4dfdf3888b))
+
+- Implement the coach — /coach, the user-invoked orchestrator (issue #21)
+  ([#82](https://github.com/jacquardlabs/jig/pull/82),
+  [`ae1143f`](https://github.com/jacquardlabs/jig/commit/ae1143f514ab9bc8e1c407e1a6febe4dfdf3888b))
+
+
 ## v1.4.0 (2026-07-17)
 
 ### Build System

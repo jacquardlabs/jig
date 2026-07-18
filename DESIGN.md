@@ -2,21 +2,19 @@
 
 jig is a Claude Code plugin — its user-facing surface is the set of
 commands/skills it exposes and the vocabulary they emit, not a visual UI.
-**M1 (repo & plugin scaffold, #30) has shipped**: `.claude-plugin/plugin.json`
+**M1–M6 have all shipped** (current release v1.6.0): `.claude-plugin/plugin.json`
 and `skills/{design,plan,build,finish,coach,task-execution-discipline}/`
-all exist, each user-invoked skill carrying a stub `SKILL.md` with valid
-frontmatter and an explicit "not yet implemented" description. No skill has
-real behavior behind it yet — `/design`, `/plan`, `/build`, `/finish`, and
-the coach still land in M2–M6. Everything below is still extracted from the
-project's ratified handoff document, not from running code, since the
-stubs emit no vocabulary of their own yet. Re-run `/extract-design-system`
-once M2–M6 land real implementations.
+all exist, each user-invoked skill carrying a real `SKILL.md` with its own
+verdict vocabulary, not a stub. Everything below is extracted from the
+shipped `SKILL.md` files themselves, not the handoff document — each is now
+its own source of truth. Re-run `/extract-design-system` after a future
+milestone changes a skill's verdict vocabulary or adds a new surface.
 
 ## Surfaces
 
 | Surface | Framework / tech | Entry point |
 |---------|------------------|-------------|
-| `plugin` | Claude Code plugin (skills + deterministic scripts) | Scaffolded, not yet implemented — `skills/design`, `skills/plan`, `skills/build`, `skills/finish`, and `skills/coach` exist as stub `SKILL.md` files (M1); real behavior lands M2–M6. `scripts/design-lint` is real as of the design-lint story (issue #9, M2) and `scripts/plan-lint` is real as of the plan-lint story (issue #12, M3) — both zero-model structural linters with a deterministic 0/1/2 exit code, per this doc's Formatting section above. |
+| `plugin` | Claude Code plugin (skills + deterministic scripts) | Shipped — `skills/design`, `skills/plan`, `skills/build`, `skills/finish`, `skills/coach`, and `skills/task-execution-discipline` all carry real `SKILL.md` behavior (M1–M6). 8 deterministic scripts back them: `design-lint`, `plan-lint`, `verify`, `status-flip`, `evidence-capture`, `evidence-freshness`, `build-report`, and `worktree-setup` — all zero-model structural checks with deterministic exit codes, per this doc's Formatting section above. |
 
 ## Semantic palette
 
@@ -28,23 +26,23 @@ below) — state is signaled by which token a command returns, not by color.
 
 ## Vocabulary
 
-The canonical verdict enums each future command commits to, per the
-ratified handoff. Source of truth for all of these is currently the handoff
-document itself; once each skill ships, its own `SKILL.md` becomes the real
-source and this table should be updated to point there.
+The canonical verdict enums each shipped command commits to. Every row's
+source of truth is now the skill's own `SKILL.md` — the handoff document
+that originally ratified these is historical context, not the live
+reference.
 
 | Concept | Canonical display | Source of truth | Consumers |
 |---------|-------------------|-----------------|-----------|
-| `/design` verdict | `DESIGNED` \| `NEEDS RESEARCH` \| `REVISED` | handoff §5.1 (future: `skills/design/SKILL.md`) | `/design` output; read by `/plan` and studious's `/gate-design-review` |
-| `/plan` verdict | `PLAN READY` \| `DESIGN GAP` \| `TOO BIG` | handoff §5.2 (future: `skills/plan/SKILL.md`) | `/plan` output; `DESIGN GAP` routes back to `/design` |
+| `/design` verdict | `DESIGNED` \| `NEEDS RESEARCH` \| `REVISED` | `skills/design/SKILL.md` (verdict table) | `/design` output; read by `/plan` and studious's `/gate-design-review` |
+| `/plan` verdict | `PLAN READY` \| `DESIGN GAP` \| `TOO BIG` | `skills/plan/SKILL.md` (verdict table) | `/plan` output; `DESIGN GAP` routes back to `/design` |
 | `/build` task status | `todo` → `in-progress` → `PASS`/`REPLAN`/`ESCALATE` | `skills/build/SKILL.md` | flipped by scripts only, never the model |
 | `/build` failure-routine action | `FIX` \| `RESAMPLE` | `skills/build/SKILL.md` | the Foreman's own per-attempt judgment call after an item FAIL; transient, never written as a task status suffix |
-| `/build` session verdict | `BUILT` \| `PAUSED` \| `ESCALATED` | handoff §5.3 | reported to the coach and the human |
+| `/build` session verdict | `BUILT` \| `PAUSED` \| `ESCALATED` | `skills/build/SKILL.md` (verdict table) | reported to the coach and the human |
 | inspector verdict | `CLEAR` \| `DEFECT` \| `CONCERN` | `skills/build/SKILL.md` (step 2.6) | `/build`'s failure routine; `CONCERN` forwards to `/gate-audit` |
-| `/finish` verdict | `MERGE` \| `PR` \| `KEEP` \| `DISCARD` | handoff §5.4 | closes out a build branch |
-| checkpoint item type | `cap` \| `hold` | handoff §4 | every checkpoint block in `PLAN.md` |
-| verification tier | `script` \| `test-backed` \| `probe` | handoff §4 | every checkpoint item; no `judgment` tier permitted |
-| risk tag | `LOW` \| `REPLAN-RISK` \| `ESCALATE-RISK` | handoff §5.2 step 4 | assigned by `/plan`, consumed by `/build`'s cadence/pause logic |
+| `/finish` verdict | `MERGE` \| `PR` \| `KEEP` \| `DISCARD` | `skills/finish/SKILL.md` (verdict table) | closes out a build branch |
+| checkpoint item type | `cap` \| `hold` | `skills/plan/SKILL.md` (checkpoint block template) | every checkpoint block in `PLAN.md` |
+| verification tier | `script` \| `test-backed` \| `probe` | `skills/plan/SKILL.md` (checkpoint block template) | every checkpoint item; no `judgment` tier permitted |
+| risk tag | `LOW` \| `REPLAN-RISK` \| `ESCALATE-RISK` | `skills/plan/SKILL.md` (Risk tagging) | assigned by `/plan`, consumed by `/build`'s cadence/pause logic |
 
 ## Formatting
 
@@ -80,8 +78,8 @@ source and this table should be updated to point there.
   supersedes the handoff §5.1 step 4 wording this bullet previously carried
   (Intent, Experience, Contracts, Approach, Assumptions, Not doing, Risks):
   every design doc this project has actually shipped and gate-reviewed uses
-  the seven named here, not the handoff's, and `/design` itself (once it
-  ships real behavior) drafts against these names.
+  the seven named here, not the handoff's, and `/design` itself drafts
+  against these names.
 - **Task calibration**: `/plan` produces 3-8 tasks per plan; <3 is too big to
   verify, >8 is fragmenting or the feature itself is `TOO BIG`.
 - **PR evidence table** (handoff §5.4): promotes each task's Done-means into
@@ -121,26 +119,23 @@ source and this table should be updated to point there.
 ## Anti-patterns (do NOT do these)
 
 <!-- Left empty per the extraction process — this needs your intent, not an
-     assumption. Candidates worth ruling on once M2+ lands: reusing a gate
-     token (PASS, etc.) for a jig-internal concept with different meaning;
-     inventing a visual palette before any surface actually renders visually. -->
+     assumption. Candidates worth ruling on: reusing a gate token (PASS,
+     etc.) for a jig-internal concept with different meaning; inventing a
+     visual palette before any surface actually renders visually. -->
 
 ---
 
 ## Top inconsistencies / risks if left unaddressed
 
-Since no skill has real behavior yet, these are design-level risks surfaced
-by this extraction, not code drift:
-
-1. **No behavioral surface exists to extract from yet** — M1's stub
-   `SKILL.md` files exist (see Surfaces above) but emit no vocabulary of
-   their own, so this entire document is still sourced from the handoff
-   text. Re-run `/extract-design-system` once M2-M6 replace the stubs with
-   real behavior, and point the Vocabulary table's "source of truth" column
-   at each `SKILL.md` instead of the handoff.
+1. **No behavioral surface existed to extract from** — **closed**: M1's
+   stub `SKILL.md` files (this risk's original concern) were replaced by
+   real behavior across M2–M6. This document is now sourced from the
+   shipped `SKILL.md` files, and the Vocabulary table's "source of truth"
+   column points there instead of the handoff (see #56, #74).
 2. **`PASS` token collision risk** — jig's task-level `PASS` and studious's
    gate-level `PASS` are different concepts sharing a word; low risk today,
-   real risk once both appear in the same PR.
+   real risk once both appear in the same PR. Tracked as
+   [#75](https://github.com/jacquardlabs/jig/issues/75).
 3. **Risk-tag vs. severity-tier vocabulary divergence** — intentional, but
    undocumented anywhere a human would see both systems side by side.
 4. **Coach invocation convention unspecified** — **closed at M6** (story

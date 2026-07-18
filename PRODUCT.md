@@ -74,17 +74,19 @@ this document flags rather than makes unilaterally.
 
 Issue tracker: [GitHub Issues](https://github.com/jacquardlabs/jig)
 
-The tracker owns individual features (milestones M0–M6, currently 24
-issues). This section intentionally doesn't duplicate that inventory.
+The tracker owns individual features (milestones M0–M6, all complete as of
+v1.6.0). This section intentionally doesn't duplicate that inventory or
+hardcode an issue count that would immediately go stale.
 
 **Confidence: high** — GitHub Issues is active and populated; verified via
 `gh issue list`.
 
 ## Critical user journeys
 
-jig's plugin scaffold shipped at M1 (see Current known problems), but no
-skill has real behavior behind it yet — these are the journeys the ratified
-design commits to, not yet observable in a running product.
+All five skills shipped (M1–M6 complete, current release v1.6.0) and these
+journeys are observable in a running product, not just committed design —
+each skill's own `SKILL.md` is the source of truth (see DESIGN.md's
+Vocabulary table).
 
 1. **Full cycle:** `/gate-should-we-build` (studious) → `/design` (batch
    interview → forks → sectioned doc → viva) → `/gate-design-review`
@@ -96,11 +98,13 @@ design commits to, not yet observable in a running product.
    `/build`, then `/gate-audit`.
 3. **Revision loop:** an `ESCALATE` verdict from `/build` returns to
    `/design` in revision mode; a `REVISED` doc re-enters `/gate-design-review`
-   for a full persona walk.
+   for a full persona walk. `/coach` (M6) is the user-invoked entry point for
+   re-entering this loop from a `PAUSED` or `ESCALATED` state.
 
-**Confidence: medium** — drawn directly from the ratified pipeline overview,
-but unverified against a running implementation, since the shipped M1
-scaffold is stubs only (see Current known problems).
+**Confidence: high** — every skill named here has shipped, real behavior
+(`skills/*/SKILL.md`, none stubs), demonstrated across the CHANGELOG's
+v1.0.0–v1.6.0 releases, and each skill's own test suite
+(`tests/test_*_skill.py`) exercises this journey's verdict paths.
 
 ## What we're NOT building
 
@@ -124,34 +128,29 @@ handoff, not inferred.
 
 ## Current known problems
 
-jig's only code so far is the M1 plugin scaffold (#30): stub `SKILL.md`
-files with no real logic, two lint scripts that exit 0 unconditionally, and
-the tests that check the scaffold's own shape — nothing here has behavior
-to regress yet, so there's nothing to scan for TODOs or bugs beyond that.
-What *does* exist as a source of real risk: a paper dogfood of `/design` and
-`/plan` was run against a real dependency (viva issue #109) before any
-plugin code was written, and it surfaced concrete, evidenced risks that
-block or shape upcoming work:
+All five skills have shipped and are in active use; the M0-era blockers
+this section used to list are resolved (viva#101, #112, #113, #115, and
+jig #23 are all closed — see `docs/jig/dogfood/FRICTION-REPORT.md` on
+branch `docs/m0-paper-dogfood` for the historical record of what M0's paper
+dogfood surfaced). Current open bugs, per `gh issue list --label bug`:
 
-- jig's M2 (`/design` implementation) is explicitly blocked on
-  [viva#101](https://github.com/jacquardlabs/viva/issues/101) (viva-qa
-  doesn't register as an invokable Skill) — see jig issue #8.
-- Three further viva gaps surfaced during the dogfood are prerequisites, not
-  yet fixed: [viva#112](https://github.com/jacquardlabs/viva/issues/112)
-  (qa-mode sessions leak a process indefinitely),
-  [viva#113](https://github.com/jacquardlabs/viva/issues/113) (SKILL.md
-  doesn't document resuming review on an already-signed-off doc), and
-  [viva#115](https://github.com/jacquardlabs/viva/issues/115) (coarser
-  heading content silently absorbed during task-card review).
-- jig's own `/plan` format needs a fix before implementation: Not-here
-  follow-ups need a heading level that won't be absorbed by task-splitting
-  (jig issue #23).
+- [#36](https://github.com/jacquardlabs/jig/issues/36) — `pyproject.toml`'s
+  Ruff config uses `select` instead of `extend-select`, silently disabling
+  Pyflakes and default pycodestyle checks.
+- [#46](https://github.com/jacquardlabs/jig/issues/46) — the build design
+  doc doesn't document the evidence-dir-commit step before `status-flip`
+  that a real dogfood run showed is required (skipping it stalls task 2 of
+  any multi-task plan).
+- [#71](https://github.com/jacquardlabs/jig/issues/71) — `docs/design/*.md`
+  files are force-added and never stripped before merge, despite the
+  project's own "design docs die at merge" convention.
 
-Full detail: `docs/jig/dogfood/FRICTION-REPORT.md` on branch
-`docs/m0-paper-dogfood`.
+Broader engineering debt (idiom drift, fragile vocabulary derivation, test
+gaps) is tracked as ordinary open issues, not duplicated here — see the
+[issue tracker](https://github.com/jacquardlabs/jig/issues).
 
-**Confidence: high** — every item here is evidenced by a specific issue
-number and a committed report, not speculation.
+**Confidence: high** — sourced directly from `gh issue list --label bug`
+and each issue's own body, not speculation.
 
 ## Business model
 

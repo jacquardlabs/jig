@@ -2,6 +2,39 @@
 
 <!-- version list -->
 
+## v1.6.0 (2026-07-18)
+
+### Documentation
+
+- Trim changelog and issue-archaeology prose from design/plan/finish skills
+  ([#84](https://github.com/jacquardlabs/jig/pull/84),
+  [`92bcde0`](https://github.com/jacquardlabs/jig/commit/92bcde07c219432ca83bb4e0dda2854c512dceb6))
+
+### Features
+
+- Derive verify items straight from PLAN.md task blocks
+  ([#84](https://github.com/jacquardlabs/jig/pull/84),
+  [`92bcde0`](https://github.com/jacquardlabs/jig/commit/92bcde07c219432ca83bb4e0dda2854c512dceb6))
+
+### Performance Improvements
+
+- Let pillar 3 cite an already-fresh pillar-1 run instead of re-running
+  ([#84](https://github.com/jacquardlabs/jig/pull/84),
+  [`92bcde0`](https://github.com/jacquardlabs/jig/commit/92bcde07c219432ca83bb4e0dda2854c512dceb6))
+
+- Mechanize build step 2.5's items derivation via verify --plan
+  ([#84](https://github.com/jacquardlabs/jig/pull/84),
+  [`92bcde0`](https://github.com/jacquardlabs/jig/commit/92bcde07c219432ca83bb4e0dda2854c512dceb6))
+
+- Mechanize verify's item derivation, parallelize command items, trim skill rationale
+  ([#84](https://github.com/jacquardlabs/jig/pull/84),
+  [`92bcde0`](https://github.com/jacquardlabs/jig/commit/92bcde07c219432ca83bb4e0dda2854c512dceb6))
+
+- Opt-in parallel execution of verify command items
+  ([#84](https://github.com/jacquardlabs/jig/pull/84),
+  [`92bcde0`](https://github.com/jacquardlabs/jig/commit/92bcde07c219432ca83bb4e0dda2854c512dceb6))
+
+
 ## v1.5.0 (2026-07-18)
 
 ### Documentation

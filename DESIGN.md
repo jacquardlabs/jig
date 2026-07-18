@@ -92,9 +92,11 @@ source and this table should be updated to point there.
 ### Plugin / prompt tooling
 
 - **Command naming**: single verb, slash-prefixed — `/design`, `/plan`,
-  `/build`, `/finish`. The coach's own invocation convention isn't yet
-  specified in the handoff (unclear if it gets its own slash command or is
-  invoked another way) — flagged as needing clarification before M6.
+  `/build`, `/finish`, and (decided at M6, story coach-skill, issue #21)
+  `/coach`. The coach is a user-invoked skill triggering on an explicit ask
+  only — never auto-triggering on a verdict token earlier in the
+  conversation; `skills/coach/SKILL.md` is its source of truth (see risk #4
+  below, now closed).
 - **Verdict vocabulary**: see the Vocabulary table above — each command owns
   a distinct enum with no reused tokens *within jig itself*. One
   cross-project watch-item: jig's `/build` task-status token `PASS` and
@@ -141,8 +143,13 @@ by this extraction, not code drift:
    real risk once both appear in the same PR.
 3. **Risk-tag vs. severity-tier vocabulary divergence** — intentional, but
    undocumented anywhere a human would see both systems side by side.
-4. **Coach invocation convention unspecified** — the only one of the five
-   commands without a stated slash-command form.
+4. **Coach invocation convention unspecified** — **closed at M6** (story
+   coach-skill, issue #21): the coach is `/coach`, the same single-verb
+   slash-prefixed convention as the other four commands, user-invoked on an
+   explicit ask only. `skills/coach/SKILL.md` now carries the convention
+   and the orchestration behavior behind it; it emits no verdict enum of
+   its own (its closed vocabulary is its recommendation action set), so no
+   Vocabulary-table row was added.
 5. **No palette or formatting convention exists for a future non-chat
    surface** (e.g. a report or CLI wrapper) — not needed today, but the
    handoff doesn't rule one out either, so this doc would need a real

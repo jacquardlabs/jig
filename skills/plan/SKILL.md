@@ -271,30 +271,21 @@ Always pass an explicit `--split-on`, never bare auto-detect:
 ```
 
 Matching by heading *title*, any depth -- exactly the escape hatch viva's
-own `--split-on` flag exists for. Two independent reasons this is
-mandatory, not a defensive nicety:
-
-1. **Auto-detect alone is fixed as of viva 1.18.0** (`CHANGELOG.md`:
-   "Promote coarser headings to split points in auto-detect", PR #122) --
-   but a second collision auto-detect doesn't cover still exists.
-2. **`revision_history.py` appends a `## Revision History` heading** --
-   same level as `## Not-here follow-ups` -- the moment a review round
-   *finishes* sign-off. A `PLAN.md` re-parsed later (viva's own documented
-   "resuming review on an already-signed-off doc" path) now carries **two**
-   singleton `##` headings, which retriggers auto-detect's "coarsest level
-   that repeats more than once" heuristic at level 2, not 3 -- collapsing
-   every task card into one giant merge. The explicit `--split-on` pattern
-   above removes the dependency on that heading count entirely, at zero
-   added cost.
+own `--split-on` flag exists for. This is mandatory, not a defensive
+nicety: `revision_history.py` appends a `## Revision History` heading the
+moment a review round finishes sign-off, so a `PLAN.md` re-parsed later
+(viva's documented resume path) carries two singleton `##` headings --
+which flips auto-detect's "coarsest level that repeats" heuristic to level
+2 and collapses every task card into one giant merge. The explicit pattern
+removes that dependency entirely.
 
 **Heading level stays `##` for `Not-here follow-ups` -- unchanged from what
 `skills/build/SKILL.md` and `skills/finish/SKILL.md` already say.** A finer
-level (issue #23's own literal suggestion, `####`) is *coarser than* what
-those two frozen consumers' own boundary rules require -- level 1-3 ends a
-task block for both -- so `####` would nest inside the preceding task's own
-content, silently reproducing the exact absorption bug this section exists
-to close, this time against `/plan`'s own output. The `--split-on` pattern
-above, not a heading-level change, is what actually fixes issue #23.
+level would sit inside the level 1-3 boundary those two frozen consumers'
+parsing rules require, nesting the section into the preceding task's own
+content -- the exact absorption bug this section exists to close. The
+`--split-on` pattern above, not a heading-level change, is what actually
+fixes issue #23.
 
 **Consequence for `PLAN.md`'s own shape.** No heading other than the H1
 title, `### Task N` blocks, and the trailing `## Not-here follow-ups`

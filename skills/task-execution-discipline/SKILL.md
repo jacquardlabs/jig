@@ -88,17 +88,32 @@ NO DONE-MEANS CLAIM WITHOUT FRESH EVIDENCE IN THIS TASK'S EVIDENCE FIELD
 A task's status moves `todo` → `in-progress` → `PASS`/`FIX`/`REPLAN`/
 `ESCALATE`. That flip belongs to a script, never the executor's
 self-report — "Judgment in the model, mechanics in scripts," and "Nothing
-signs off on itself" (`PRODUCT.md`, Product principles). The executor's job
-is narrower and non-negotiable: before writing anything that reads like
-`Done means` is satisfied, run the command or check that `Done means`
-actually names, capture its output, and write that output into the
-`Evidence` field. "Should pass now," "looks right," or a memory of an
-earlier run doesn't count — it has to be this task's fresh run.
+signs off on itself" (`PRODUCT.md`, Product principles). `scripts/verify`
+independently re-runs every item after you're done regardless — that
+independent re-run, not your own report, is what actually backs the flip;
+nothing here loosens that. The executor's job is narrower and
+non-negotiable: before writing anything that reads like `Done means` is
+satisfied, an item's `Evidence` must reflect its check's output at the
+*current* code state, captured this task, never "should pass now," "looks
+right," or a memory of an earlier run.
+
+**Fresh doesn't mean re-run on principle.** A test-backed cap item's own
+Pillar 1 Verify-GREEN step already ran that exact check against the code
+as it stands the moment it passed — cite that output directly rather than
+running the identical command a second time in the same turn purely to
+re-confirm it. That reuse is only valid while nothing has touched the code
+since: any edit after that run (including Pillar 1's own Refactor step, or
+work on a later cap item that touches shared code) invalidates it — the
+next thing that happens is a fresh run, not a citation of stale output. A
+`hold` item or a `probe` item carries no Pillar 1 cycle to reuse from, so
+it always needs its own fresh run here.
 
 Gate function, before any completion-shaped claim:
 
 1. Identify which command or check `Done means` points to.
-2. Run it, fresh, in full.
+2. Already have this exact check's output from *this task*, run after the
+   last edit that could affect it? Cite it. Otherwise, run it fresh, in
+   full.
 3. Read the actual output — exit code, failure count, not a skim.
 4. Does it confirm `Done means`? If not, report the gap and the real
    state, not the hoped-for one. If yes, cite the evidence.

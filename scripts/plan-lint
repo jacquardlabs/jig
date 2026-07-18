@@ -84,17 +84,29 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _gitutil import git_repo_root  # noqa: E402
 
-VALID_TIERS = frozenset({"script", "test-backed", "probe"})
-COMMAND_TIERS = frozenset({"script", "test-backed"})
+# The task-splitting and Done-means-item grammar (`### Task N` blocks, the
+# `N. [cap|hold] ... (tier: ...)` item shape, the tier-parenthetical body)
+# is shared with `verify`'s --plan mode via `_planparse` -- one grammar,
+# never two drifting copies. `TASK_HEADING_RE` and `HEADING_LEVEL_1_TO_3_RE`
+# are (re-)exported here because `tests/_task_split_boundary.py` reads them
+# off this module as surface 1 of the three-way boundary-agreement check
+# (issue #66) -- its mutation test monkeypatches HEADING_LEVEL_1_TO_3_RE on
+# *this* module, which is why `split_tasks` below re-reads it at call time
+# instead of being a bare re-export of `_planparse.split_tasks`.
+from _planparse import (  # noqa: E402
+    COMMAND_TIERS,
+    HEADING_LEVEL_1_TO_3_RE,
+    TASK_HEADING_RE,  # noqa: F401  (re-export for tests/_task_split_boundary.py)
+    TIER_BODY_RE,
+    VALID_TIERS,
+    Item,
+    parse_items,
+)
+from _planparse import split_tasks as _split_tasks  # noqa: E402
+
 MAX_ITEMS = 5
 PLACEHOLDER_FOLLOWUPS = frozenset({"", "todo", "tbd", "..."})
 
-# `.*$` already tolerates a trailing `status-flip`-written suffix
-# (`[PASS]`/`[REPLAN]`/`[ESCALATE]`, scripts/status-flip's own SUFFIX_RE)
-# without special-casing it: re-linting a plan `/build` has already partly
-# executed must not spuriously fail on the heading pattern. plan-lint
-# doesn't validate the suffix itself -- that's status-flip's own contract.
-TASK_HEADING_RE = re.compile(r"^### Task (\d+)\b.*$", re.MULTILINE)
 # Captures a task heading's own title text (after the em-dash), for
 # compute_load_bearing's title-match path (issue #62's sibling gap: the
 # reference tests/_load_bearing.py already matches this way; this was the
@@ -105,9 +117,6 @@ TASK_HEADING_TITLE_RE = re.compile(r"^### Task \d+(?:\s*—\s*(.*))?$", re.MULTI
 # self-contained, not a shared package) so a title comparison ignores the
 # suffix status-flip appends and compares the same text a human reads.
 STATUS_FLIP_SUFFIX_RE = re.compile(r"\s*\[(?:PASS|REPLAN|ESCALATE)\]\s*$")
-# Any heading at level 1-3: the next task heading, or a coarser section
-# (e.g. a closing `## Not-here follow-ups`), either one ends a task block.
-HEADING_LEVEL_1_TO_3_RE = re.compile(r"^(#{1,3})[ \t]", re.MULTILINE)
 # Located by heading *text*, not depth -- issue #23's heading-level fix is
 # the sibling plan-skill story's job, not this linter's.
 NOT_HERE_FOLLOWUPS_HEADING_RE = re.compile(r"^(#{1,6})[ \t]*Not-here follow-ups[ \t]*$", re.IGNORECASE | re.MULTILINE)
@@ -117,24 +126,11 @@ READ_FIRST_RE = re.compile(r"^Read first:[ \t]*(.*)$", re.MULTILINE)
 RESTS_ON_RE = re.compile(r"^Rests on:[ \t]*(.*)$", re.MULTILINE)
 DO_RE = re.compile(r"^Do:[ \t]*(.*)$", re.MULTILINE)
 
-ITEM_RE = re.compile(
-    r"^[ \t]*(\d+)\.[ \t]*\[(cap|hold)\][ \t]*(.*?)[ \t]*(?:\(tier:[ \t]*([^)]*)\))?[ \t]*$",
-    re.MULTILINE,
-)
-TIER_BODY_RE = re.compile(r"^([\w-]+)(?:\s+`([^`]+)`)?$")
 BACKTICK_RE = re.compile(r"`([^`]+)`")
 LINE_LOCATOR_SUFFIX_RE = re.compile(r":\d+(?:-\d+)?$")
 BULLET_RE = re.compile(r"^[ \t]*[-*][ \t]+(.*)$", re.MULTILINE)
 
 NOT_HERE_FOLLOWUPS_LABEL = "(Not-here follow-ups)"
-
-
-@dataclass
-class Item:
-    num: str
-    kind: str
-    behavior: str
-    tier_body: str | None
 
 
 @dataclass
@@ -148,34 +144,17 @@ class Violation:
 
 
 def split_tasks(text: str) -> list[tuple[str, str]]:
-    """Split `text` into (task_number, block_text) pairs, in document order.
-
-    A task block runs from its own `### Task N` heading up to (but not
-    including) the next heading at level 1-3 -- the next task, or any
-    coarser section -- matching `/build`'s own Step 1.4 rule verbatim.
-    """
-    task_matches = list(TASK_HEADING_RE.finditer(text))
-    boundary_starts = sorted(h.start() for h in HEADING_LEVEL_1_TO_3_RE.finditer(text))
-    tasks = []
-    for m in task_matches:
-        start = m.start()
-        end = next((b for b in boundary_starts if b > start), len(text))
-        tasks.append((m.group(1), text[start:end]))
-    return tasks
+    """`_planparse.split_tasks`, bound to this module's own
+    `HEADING_LEVEL_1_TO_3_RE` at call time -- so the boundary-agreement
+    mutation check (tests/_task_split_boundary.py, issue #66) can still
+    monkeypatch that constant here and see the very next call change."""
+    return _split_tasks(text, boundary_re=HEADING_LEVEL_1_TO_3_RE)
 
 
 def extract_field(block: str, pattern: re.Pattern[str]) -> str:
     """First match of a single-line `Label: ...` field, or "" if absent."""
     m = pattern.search(block)
     return m.group(1).strip() if m else ""
-
-
-def parse_items(block: str) -> list[Item]:
-    items = []
-    for m in ITEM_RE.finditer(block):
-        num, kind, behavior, tier_body = m.group(1), m.group(2), m.group(3), m.group(4)
-        items.append(Item(num=num, kind=kind, behavior=behavior, tier_body=tier_body))
-    return items
 
 
 def strip_line_locator(span: str) -> str:

@@ -35,11 +35,13 @@ test_discipline_skill.py already takes for its own sibling skill):
    guard for the same failure mode test_scaffold.py guards against).
 9. The dispatch prompt's boundary line itself instructs the executor to
     commit and return the SHA, and the executor-return contract no longer
-    claims the executor emits verify's ITEMS_SCHEMA JSON -- the Foreman
-    transcribes that JSON from the checkpoint block's own `Done means`
-    lines instead (gate-acceptance fix-and-retry finding on this story:
-    the dispatch prompt never taught the executor to commit or hand back
-    a SHA/JSON, contradicted by the demonstrated evidence).
+    claims the executor emits verify's ITEMS_SCHEMA JSON -- `scripts/verify`
+    derives that list itself, mechanically, from the checkpoint block via
+    `--plan`/`--task` (perf item 6: mechanized transcription); the Foreman
+    hand-authors only a `--probe-spec` supplement, and only when the task
+    has probe-tier items (gate-acceptance fix-and-retry finding on this
+    story: the dispatch prompt never taught the executor to commit or hand
+    back a SHA/JSON, contradicted by the demonstrated evidence).
 
 Story rough-in-inspector (issue #15) replaced step 2.6's former no-op with
 a real, conditional dispatch -- the tests below check that mechanically,
@@ -209,9 +211,15 @@ class TestBuildSkillBody(unittest.TestCase):
         self.assertNotIn("fenced JSON block", self.body)
         self.assertPhraseIn("The executor never emits `scripts/verify`'s `ITEMS_SCHEMA` JSON itself")
 
-    def test_foreman_transcribes_items_from_the_checkpoint_block(self) -> None:
-        self.assertPhraseIn("Transcribe the items file yourself")
-        self.assertPhraseIn("one entry per numbered `Done means` item in *this task's own checkpoint block*")
+    def test_foreman_derives_items_via_verify_plan_mode(self) -> None:
+        # `scripts/verify --plan --task` derives script/test-backed items
+        # mechanically from the checkpoint block; the Foreman only ever
+        # hand-authors a --probe-spec, and only for probe-tier items.
+        self.assertPhraseIn("`scripts/verify` derives the items list")
+        self.assertPhraseIn("--plan <plan path> --task")
+        self.assertPhraseIn("if and only if")
+        self.assertPhraseIn("--probe-spec")
+        self.assertNotIn("Transcribe the items file yourself", self.body)
 
     def test_failure_routine_names_fix_and_resample(self) -> None:
         for token in ("FIX", "RESAMPLE"):
@@ -317,14 +325,14 @@ class TestBuildSkillBody(unittest.TestCase):
         self.assertPhraseIn("`status-flip` derives the `PASS` token itself from")
         self.assertPhraseIn("you never hand it a status string on this path")
 
-    def test_step_5_instructs_scratch_path_for_items_and_results(self) -> None:
-        # Issue #45: the Foreman's own transient items.json/results.json
+    def test_step_5_instructs_scratch_path_for_probe_spec_and_results(self) -> None:
+        # Issue #45: the Foreman's own transient probe-spec.json/results.json
         # must never land inside the worktree, or evidence-capture's
         # clean-tree check refuses on task 1 -- before the task can ever
         # complete, not just before a later one.
         self.assertPhraseIn(
-            "Write this items file, and `verify`'s `--out results.json` "
-            "below, to a scratch path outside the worktree"
+            "Write `--probe-spec` (when needed) and `verify`'s `--out\n"
+            "   results.json` to a scratch path outside the worktree"
         )
         self.assertPhraseIn("never a path under `<worktree>` itself")
         self.assertPhraseIn("issue #45")

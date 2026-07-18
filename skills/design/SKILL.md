@@ -255,27 +255,10 @@ of every `/design` session.
   `hint`/`text` today (Steps 2-3), a functional but informal workaround.
   Worth a real upstream viva feature request once the workaround's cost is
   felt over more than one invocation -- not filed by this skill itself.
-- **Resolved, not deferred:** `DESIGN.md`'s Formatting section previously
-  still named the handoff-literal seven as canonical while this skill and
-  every shipped design doc used `design-doc-contract.md`'s seven instead --
-  that staleness was originally flagged here for a future
-  `/deep-review interface` pass or a `/finish`-time decision patch, but
-  deferring it left Step 5 hard-depending on a linter that (per `DESIGN.md`)
-  would never accept this skill's own output. `DESIGN.md`'s "Design doc
-  structure" line now names the same contract-canonical seven this skill
-  drafts, closing that gap directly rather than waiting on a later pass.
-- **Also resolved, not still open:** `scripts/design-lint` (issue #9)
-  originally shipped with its `CANONICAL_SECTIONS`/`REQUIRED_SECTIONS`
-  constants still encoding the old handoff-literal names, which would have
-  made a real Step 5 invocation against this skill's own contract-canonical
-  seven section names fail outright. That gap is now closed by the sibling
-  `design-lint-reconcile` story (`docs/design/design-lint-reconcile.md`,
-  merged): the constants were reconciled to `design-doc-contract.md`'s
-  seven, and Checks 2-4's old heading-specific lookups were remapped to
-  match (`design-lint-reconcile.md` names the exact remap). Verified
-  directly against this story's own `docs/design/design-skill.md`:
-  `scripts/design-lint --doc docs/design/design-skill.md --repo .` reports
-  a clean pass (5 checks, 0 violations), exit `0`.
+
+(Two previously-listed items -- `DESIGN.md`'s stale handoff-literal section
+names, and `design-lint`'s matching stale constants -- are resolved; see
+`docs/design/design-lint-reconcile.md` and git history.)
 
 ## Why this shape
 

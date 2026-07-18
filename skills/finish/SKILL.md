@@ -88,14 +88,10 @@ Two evidence shapes, two treatments:
   from the repo's own `origin` remote. Anchor `<sha>` to the commit current
   at the moment this step assembles the table (`git rev-parse HEAD` in the
   worktree) — a real, immutable commit SHA, never the branch name, which
-  floats and disappears once the branch is deleted. This is a known,
-  accepted limitation, not a bug to fix here: for `MERGE` (a real merge,
-  not a squash) that commit stays reachable from the target branch forever,
-  so the link never breaks; for `PR`, a later squash-merge-and-delete on
-  GitHub's own UI can eventually make that commit (and the raw URL) a GC
-  candidate. Keeping evidence in place rather than copying it onto the
-  target branch is the deliberate trade-off (small files, disposable
-  scaffolding) — don't try to close that gap here.
+  floats and disappears once the branch is deleted. A squash-merged-then-
+  deleted branch can eventually make that raw URL a GC candidate — a known,
+  accepted trade-off of keeping evidence in place; don't try to close that
+  gap here.
 
 ## Step 2 — cctx footer
 

@@ -255,46 +255,63 @@ For each task block, in order:
    its only context is the task block and the boundary line above, neither
    of which mentions that schema. Transcribing it is the Foreman's own
    next step (2.5), not something asked of a fresh executor.
-5. **Verify, independently.** Transcribe the items file yourself: one
-   entry per numbered `Done means` item in *this task's own checkpoint
-   block* (`task`, `items[]` with `id`/`kind`/`tier` and a `command` or
-   `artifact`/`pattern`, matching `scripts/verify`'s `ITEMS_SCHEMA`) — the
-   block's own `Done means` prose already states each item's kind, tier,
-   and check; you are transcribing that, never inventing a check the
-   block didn't name. That JSON names *what to check*, never *whether it
-   passed*; only `verify` decides the result.
+5. **Verify, independently.** `scripts/verify` derives the items list
+   itself, straight from *this task's own checkpoint block* in `<plan
+   path>` — `--plan <plan path> --task <this task's heading number, e.g.
+   "3" or "Task 3">`. You no longer hand-transcribe a `script`/`test-backed`
+   item's check: its backtick-quoted method path in the block *is* the
+   command `verify` runs, read mechanically, the same grammar
+   `scripts/plan-lint` already validates. `verify`'s per-item PASS/FAIL
+   report is what you react to next, not the executor's claim.
 
-   **Write this items file, and `verify`'s `--out results.json` below, to a
-   scratch path outside the worktree** — a fresh directory under the
-   system temp dir (e.g. `mktemp -d`), or wherever this session already
-   keeps working files — never a path under `<worktree>` itself. These are
-   the Foreman's own transient working notes, not the executor's committed
-   change, and `evidence-capture` (step 7) refuses to run against a dirty
-   tree: the moment either file lands inside the worktree it shows up as
-   untracked in `git status --porcelain`, and the very next call in this
-   same task — not just a later one — refuses (issue #45). Then call
-   `scripts/verify --items <scratch-path>/items.json --since <this attempt's dispatch timestamp from step 2.2> --repo <worktree> --out <scratch-path>/results.json`.
-   **Never the executor's own reported commit SHA** — a `probe` artifact
-   is written to disk *before* it is committed, so its mtime is always at
-   or before that very commit's own timestamp; using the commit as the
-   floor makes every `probe` item structurally unpassable (issue #44). The
-   dispatch timestamp, captured before the executor ever started, predates
-   anything it writes while still catching an artifact staled forward from
-   an earlier attempt at this same task. This call always happens *after*
-   the executor's own commit, never before — reversing that order makes
-   `evidence-capture`'s freshness check vacuous. `verify`'s per-item
-   PASS/FAIL report is what you react to next, not the executor's claim.
+   **A `probe` item is the one exception** — the plan grammar carries no
+   artifact path or pattern for it, only free-text `Done means` prose, so
+   *if and only if* this task has one or more `probe` items, read each
+   one's own prose and derive its `{"artifact": <path>, "pattern":
+   <optional regex>}` — never invent a check the block didn't name, just
+   locate the file it's already describing — into a small JSON object
+   keyed by item number, passed as `--probe-spec <scratch-path>/probe-spec.json`.
+   A task with no `probe` items needs no `--probe-spec` at all.
 
-   **Exit code 2 from `verify` is not a task FAIL.** It means a usage
-   error — almost certainly a malformed items file, i.e. you
-   mis-transcribed this task's checkpoint block's `Done means` lines.
-   Treat this as your own bug: re-read the checkpoint block, re-write the
-   items file, and re-invoke `verify` — no new executor dispatched, and
-   this attempt does **not** count against the Failure routine's
-   two-failure budget. Only exit 0 (PASS) or exit 1 (at least one item
-   FAIL) advances that budget. If exit 2 recurs after that one retry, stop
-   and report **PAUSED**, naming "verify usage error persisted after
-   retry."
+   **Write `--probe-spec` (when needed) and `verify`'s `--out
+   results.json` to a scratch path outside the worktree** — a fresh
+   directory under the system temp dir (e.g. `mktemp -d`), or wherever this
+   session already keeps working files — never a path under `<worktree>`
+   itself. These are the Foreman's own transient working notes, not the
+   executor's committed change, and `evidence-capture` (step 7) refuses to
+   run against a dirty tree: the moment either file lands inside the
+   worktree it shows up as untracked in `git status --porcelain`, and the
+   very next call in this same task — not just a later one — refuses
+   (issue #45). Then call
+   `scripts/verify --plan <plan path> --task <this task's heading number> [--probe-spec <scratch-path>/probe-spec.json] --since <this attempt's dispatch timestamp from step 2.2> --repo <worktree> --out <scratch-path>/results.json`.
+   **Never the executor's own reported commit SHA** for `--since` — a
+   `probe` artifact is written to disk *before* it is committed, so its
+   mtime is always at or before that very commit's own timestamp; using the
+   commit as the floor makes every `probe` item structurally unpassable
+   (issue #44). The dispatch timestamp, captured before the executor ever
+   started, predates anything it writes while still catching an artifact
+   staled forward from an earlier attempt at this same task. This call
+   always happens *after* the executor's own commit, never before —
+   reversing that order makes `evidence-capture`'s freshness check vacuous.
+
+   **Exit code 2 from `verify` is not a task FAIL** — a usage error, never
+   a check result; it does **not** count against the Failure routine's
+   two-failure budget (only exit 0 PASS or exit 1 FAIL does). Two distinct
+   causes:
+   - **A named `probe` item needs a `--probe-spec` entry.** `verify` names
+     exactly which item id(s) are missing one — you mis-derived (or
+     omitted) the probe spec for those items. Your own bug: re-read their
+     `Done means` prose and re-invoke with the corrected `--probe-spec` —
+     no new executor dispatched. If it recurs after that one retry, stop
+     and report **PAUSED**, naming "verify usage error persisted after
+     retry."
+   - **The checkpoint block itself doesn't parse** — an ambiguous or
+     malformed `Done means` line, or a duplicate task heading in `<plan
+     path>`. This is a plan-authoring defect, not a Foreman mistake to
+     retry past: call
+     `scripts/status-flip --plan <path> --task <label> --status REPLAN --reason "<verify's own parse error>"`
+     and report **PAUSED** directly — the human revises the block by hand,
+     then re-invokes `/build`.
 6. **Inspect — conditional on load-bearing status (issue #15).** Consult
    the fixed load-bearing set step 1.5 already computed.
 
@@ -426,8 +443,8 @@ For each task block, in order:
      an artifact from wherever `--artifact` names it and copies it into
      the worktree's own evidence directory itself; it never needs the
      source file to already live in the worktree. This is what lets this
-     call succeed on task 1: with the items file, `results.json`, and any
-     probe-artifact copies kept outside `<worktree>` throughout, the only
+     call succeed on task 1: with `results.json`, any `--probe-spec` file,
+     and any probe-artifact copies kept outside `<worktree>` throughout, the only
      thing present in the worktree at this point is the executor's own
      committed change, so `evidence-capture`'s clean-tree check has a real,
      clean tree to check (issue #45) instead of refusing before task 1 ever

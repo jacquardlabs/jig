@@ -5,7 +5,7 @@
 A Claude Code plugin that owns the **build** step of feature development — the
 slot where [studious](https://github.com/jacquardlabs/studious) currently says
 "build it with your own workflow" and users reach for Superpowers. Five
-user-invoked skills (`/design`, `/plan`, `/build`, `/finish`, plus a coach) and
+user-invoked skills (`/design`, `/plan`, `/build`, `/finish`, `/coach`) and
 a small set of deterministic scripts.
 
 Workshop sense of the name: a fixture that holds the workpiece and guides the
@@ -14,11 +14,13 @@ repeatability, accuracy, interchangeable operators. A jig for Claude Code —
 holds the work and guides the tool so any model cuts precisely.
 
 > [!NOTE]
-> **Pre-implementation.** This repo is scaffolding only — no
-> `.claude-plugin` manifest, no `skills/`, no code. The project runs a paper
-> dogfood of the full pipeline before any plugin code is written. 7
-> milestones (M0–M6), 24 issues, tracked on
-> [GitHub](https://github.com/jacquardlabs/jig/issues).
+> **Shipped.** All five skills (`/design`, `/plan`, `/build`, `/finish`,
+> `/coach`) are implemented and registered in the jacquardlabs marketplace.
+> Milestones M0–M6 are complete; current release is
+> [v1.5.0](https://github.com/jacquardlabs/jig/releases/tag/v1.5.0). See the
+> [CHANGELOG](CHANGELOG.md) for release history and
+> [milestones](https://github.com/jacquardlabs/jig/milestones) for the
+> M0–M6 breakdown.
 
 ## What this is — and isn't
 
@@ -51,18 +53,24 @@ Composition via small contracts, not a suite:
 
 ## Install
 
-> TODO: jig has no `.claude-plugin/plugin.json` yet and isn't registered in
-> the jacquardlabs marketplace. [Issue #7](https://github.com/jacquardlabs/jig/issues/7)
-> tracks marketplace registration, gated on the M1 scaffold
-> ([issue #5](https://github.com/jacquardlabs/jig/issues/5)). Once M1 lands,
-> this section should show the `/plugin marketplace add` /
-> `/plugin install` commands — don't add them before that manifest exists.
+Via the Jacquard Labs marketplace:
+
+```
+/plugin marketplace add jacquardlabs/marketplace
+/plugin install jig@jacquardlabs-marketplace
+```
+
+Or directly:
+
+```
+/plugin marketplace add jacquardlabs/jig
+/plugin install jig@jig
+```
 
 ## Usage
 
-Nothing below is runnable yet — no skill exists on `main` (see the Install
-TODO above). This is the ratified pipeline each skill is designed to
-implement, per the project's handoff document:
+This is the pipeline each skill implements, per the project's handoff
+document:
 
 ```
 /backlog-priorities or /gate-should-we-build     (studious, existing)
@@ -83,7 +91,7 @@ implement, per the project's handoff document:
 Quick path (small fixes / most bugs): single task block → /build → /gate-audit
 ```
 
-### Planned skills
+### Skills
 
 | Skill | Milestone | Job |
 |---|---|---|
@@ -91,11 +99,7 @@ Quick path (small fixes / most bugs): single task block → /build → /gate-aud
 | `/plan` | M3 | Inventory → dependency spine → checkpoint blocks → lint → viva |
 | `/build` | M4 | Fresh executor per task, script verification, conditional inspector on load-bearing tasks |
 | `/finish` | M5 | PR evidence table, cctx harvest, follow-ups, cleanup |
-| coach | M6 | User-invoked orchestrator — sequencing and context-passing only |
-
-> TODO: the coach's own invocation convention isn't yet decided (own slash
-> command, or invoked another way) — flagged in DESIGN.md as needing a call
-> before M6.
+| `/coach` | M6 | User-invoked orchestrator — reads pipeline state, recommends one next action, dispatches `/design`/`/plan`/`/build`/`/finish` on explicit confirmation |
 
 ## Design principles (non-negotiable)
 
@@ -115,13 +119,18 @@ Quick path (small fixes / most bugs): single task block → /build → /gate-aud
 
 ## Status & roadmap
 
-M0 (pre-work gate) is in progress: a paper dogfood of `/design` and `/plan`
-ran against a real dependency ([viva](https://github.com/jacquardlabs/viva)
-issue #109) before any plugin code was written, and it surfaced blocking
-gaps — full detail in `docs/jig/dogfood/FRICTION-REPORT.md` on branch
-[`docs/m0-paper-dogfood`](https://github.com/jacquardlabs/jig/tree/docs/m0-paper-dogfood),
-summarized in [PRODUCT.md](PRODUCT.md#current-known-problems). See
-[milestones](https://github.com/jacquardlabs/jig/milestones) for M1–M6.
+M0–M6 are complete. M0 (pre-work gate) ran a paper dogfood of `/design` and
+`/plan` against a real dependency ([viva](https://github.com/jacquardlabs/viva)
+issue #109) before any plugin code was written, surfacing blocking gaps —
+full detail in `docs/jig/dogfood/FRICTION-REPORT.md` on branch
+[`docs/m0-paper-dogfood`](https://github.com/jacquardlabs/jig/tree/docs/m0-paper-dogfood).
+M1 shipped the plugin scaffold; M2–M6 shipped `/design`, `/plan`, `/build`,
+`/finish`, and `/coach` in turn. Current release is
+[v1.5.0](https://github.com/jacquardlabs/jig/releases/tag/v1.5.0) — see the
+[CHANGELOG](CHANGELOG.md) for per-release detail and
+[milestones](https://github.com/jacquardlabs/jig/milestones) for the M0–M6
+breakdown. Known issues and follow-up work are tracked on the
+[issue tracker](https://github.com/jacquardlabs/jig/issues).
 
 ## Contributing
 

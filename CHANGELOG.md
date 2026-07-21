@@ -2,6 +2,28 @@
 
 <!-- version list -->
 
+## v1.7.0 (2026-07-21)
+
+### Documentation
+
+- Add 2026-07-17 deep-review reports and metrics baseline
+  ([#96](https://github.com/jacquardlabs/jig/pull/96),
+  [`c4fe7b9`](https://github.com/jacquardlabs/jig/commit/c4fe7b9c0bbb4e1773eb2daf65c7cc97381f2c75))
+
+- Re-run context-doc extraction now that M1-M6 have shipped
+  ([#86](https://github.com/jacquardlabs/jig/pull/86),
+  [`b2e6551`](https://github.com/jacquardlabs/jig/commit/b2e6551425bae8da010e4cb908b80fe6c0f76fcd))
+
+- Update README to reflect shipped M1-M6 state ([#85](https://github.com/jacquardlabs/jig/pull/85),
+  [`174a7f6`](https://github.com/jacquardlabs/jig/commit/174a7f6270e49e02b8ff8d9071dacb0b4a997bb3))
+
+### Features
+
+- Report /build's session verdict back to studious's gate-ledger
+  ([#97](https://github.com/jacquardlabs/jig/pull/97),
+  [`64c4803`](https://github.com/jacquardlabs/jig/commit/64c4803be0c2ce6e529e49630d5324ba122e0029))
+
+
 ## v1.6.0 (2026-07-18)
 
 ### Documentation

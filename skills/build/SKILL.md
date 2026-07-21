@@ -567,6 +567,21 @@ transcription bug and re-invoke.
 verdict is the bold token, one sentence naming the cause and resume action (for
 `PAUSED`) or the next step (for `BUILT`/`ESCALATED`), and nothing after.
 
+## Report status back to studious
+
+Right before reporting the session verdict above -- never in place of it --
+check `command -v gate-ledger`:
+
+- **Found** -- `gate-ledger work-list` and match a row whose branch column
+  equals the current branch. Matched -- `gate-ledger work-log --slug
+  "<that-slug>" --step build --outcome "<BUILT|PAUSED|ESCALATED>"`, never
+  `--phase` (studious's `/work-on` owns that judgment; see
+  `reference/worker-contract.md`'s "Status reporting" section in the
+  studious repo). No matching row -- skip silently; this session isn't part
+  of a `/work-on` flow.
+- **Not found** -- skip silently. Best-effort corroboration for a sibling
+  plugin, never a required part of this skill's own contract.
+
 ## Why this shape
 
 "Judgment in the model, mechanics in scripts" is the whole structure here:
